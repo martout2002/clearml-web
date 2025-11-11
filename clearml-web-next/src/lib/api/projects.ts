@@ -23,6 +23,7 @@ export interface UpdateProjectParams {
   name?: string;
   description?: string;
   tags?: string[];
+  system_tags?: string[];
   default_output_destination?: string;
 }
 
@@ -89,4 +90,12 @@ export async function deleteProject(id: string): Promise<void> {
   await apiRequest('projects.delete', {
     project: id,
   });
+}
+
+/**
+ * Get project statistics
+ */
+export async function getProjectStats(projectId: string): Promise<Project['stats']> {
+  const project = await getProjectById(projectId);
+  return project.stats;
 }
