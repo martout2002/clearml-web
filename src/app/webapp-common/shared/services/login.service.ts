@@ -142,7 +142,7 @@ export class BaseLoginService {
   }
 
   getUsers() {
-    return this.httpClient.post<{data: UsersGetAllResponse}>(`${this.basePath}/users.get_all`, null, {headers: this.getHeaders()})
+    return this.httpClient.post<{data: UsersGetAllResponse}>(`${this.basePath}/users.get_all`, null, {headers: this.getHeaders(), withCredentials: true})
       .pipe(
         map(x => x.data.users)
       );
@@ -174,7 +174,7 @@ export class BaseLoginService {
       family_name: name.split(' ')[1] ? name.split(' ')[1] : name.split(' ')[0]
 
     };
-    return this.httpClient.post<{data: AuthCreateUserResponse}>(`${this.basePath}/auth.create_user`, data, {headers})
+    return this.httpClient.post<{data: AuthCreateUserResponse}>(`${this.basePath}/auth.create_user`, data, {headers, withCredentials: true})
       .pipe(map(x => x.data.id));
   }
 
