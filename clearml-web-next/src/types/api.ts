@@ -228,3 +228,42 @@ export interface User {
   created?: string;
   preferences?: Record<string, unknown>;
 }
+
+export interface Pipeline {
+  id: string;
+  name: string;
+  description?: string;
+  status: 'draft' | 'running' | 'stopped' | 'completed' | 'failed';
+  project?: { id: string; name: string };
+  user?: {
+    id: string;
+    name: string;
+  };
+  company?: {
+    id: string;
+    name: string;
+  };
+  created?: string;
+  started?: string;
+  completed?: string;
+  last_update?: string;
+  tags?: string[];
+  system_tags?: string[];
+  steps: PipelineStep[];
+  edges: PipelineEdge[];
+}
+
+export interface PipelineStep {
+  id: string;
+  name: string;
+  type: 'task' | 'dataset' | 'model' | 'code';
+  status?: 'pending' | 'running' | 'completed' | 'failed';
+  position: { x: number; y: number };
+  data: Record<string, unknown>;
+}
+
+export interface PipelineEdge {
+  id: string;
+  source: string;
+  target: string;
+}
