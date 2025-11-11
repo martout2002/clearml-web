@@ -11,7 +11,6 @@ export interface Workspace {
 
 export interface AuthState {
   user: User | null;
-  token: string | null;
   isAuthenticated: boolean;
   rememberMe: boolean;
   authMode: LoginMode | null;
@@ -22,13 +21,8 @@ export interface AuthState {
 
 export interface AuthActions {
   setUser: (user: User | null) => void;
-  setToken: (token: string | null) => void;
   setRememberMe: (remember: boolean) => void;
-  setAuthMode: (mode: LoginMode | null) => void;
-  setCredentials: (credentials: Credentials | null) => void;
-  setActiveWorkspace: (workspace: Workspace | null) => void;
-  setWorkspaces: (workspaces: Workspace[]) => void;
-  login: (user: User, token?: string, remember?: boolean) => void;
+  login: (user: User, remember?: boolean) => void;
   logout: () => void;
   updateUserPreferences: (preferences: Record<string, unknown>) => void;
 }
@@ -37,7 +31,6 @@ export type AuthStore = AuthState & AuthActions;
 
 const initialState: AuthState = {
   user: null,
-  token: null,
   isAuthenticated: false,
   rememberMe: false,
   authMode: null,
@@ -68,56 +61,20 @@ export const useAuthStore = create<AuthStore>()(
           isAuthenticated: !!user,
         }),
 
-      setToken: (token) =>
-        set({
-          token,
-        }),
-
       setRememberMe: (remember) =>
         set({
           rememberMe: remember,
         }),
 
-      setAuthMode: (mode) =>
-        set({
-          authMode: mode,
-        }),
-
-      setCredentials: (credentials) =>
-        set({
-          credentials,
-        }),
-
-      setActiveWorkspace: (workspace) =>
-        set({
-          activeWorkspace: workspace,
-        }),
-
-      setWorkspaces: (workspaces) =>
-        set({
-          userWorkspaces: workspaces,
-        }),
-
-      login: (user, token, remember = false) => {
+      login: (user, remember = false) => {
         set({
           user,
-          token: token || null,
           isAuthenticated: true,
           rememberMe: remember,
         });
-
-        // Store token in localStorage for API client (if provided)
-        if (typeof window !== 'undefined' && token) {
-          localStorage.setItem('clearml_token', token);
-        }
       },
 
       logout: () => {
-        // Clear token from localStorage
-        if (typeof window !== 'undefined') {
-          localStorage.removeItem('clearml_token');
-        }
-
         set({
           ...initialState,
         });
@@ -143,7 +100,6 @@ export const useAuthStore = create<AuthStore>()(
       storage: createJSONStorage(() => localStorage),
       partialize: (state) => ({
         user: state.rememberMe ? state.user : null,
-        token: state.rememberMe ? state.token : null,
         isAuthenticated: state.rememberMe ? state.isAuthenticated : false,
         rememberMe: state.rememberMe,
         authMode: state.authMode, // Always persist auth mode
@@ -159,7 +115,6 @@ export const useAuthStore = create<AuthStore>()(
  * Selectors for common auth state
  */
 export const selectUser = (state: AuthStore) => state.user;
-export const selectToken = (state: AuthStore) => state.token;
 export const selectIsAuthenticated = (state: AuthStore) => state.isAuthenticated;
 export const selectRememberMe = (state: AuthStore) => state.rememberMe;
 export const selectAuthMode = (state: AuthStore) => state.authMode;

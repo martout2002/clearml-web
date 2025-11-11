@@ -25,7 +25,6 @@ export const authKeys = {
  */
 export function useAuth() {
   const user = useAuthStore((state) => state.user);
-  const token = useAuthStore((state) => state.token);
   const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
   const rememberMe = useAuthStore((state) => state.rememberMe);
   const login = useAuthStore((state) => state.login);
@@ -35,7 +34,6 @@ export function useAuth() {
 
   return {
     user,
-    token,
     isAuthenticated,
     rememberMe,
     login,
@@ -74,22 +72,23 @@ export function useLogin(
   options?: UseMutationOptions<
     authApi.LoginResponse,
     Error,
-    authApi.LoginCredentials
+    authApi.LoginCredentials & { remember?: boolean }
   >
 ) {
   const queryClient = useQueryClient();
   const authStore = useAuthStore();
 
   return useMutation({
-    mutationFn: authApi.login,
-    onSuccess: (data, variables) => {
-      // Update auth store
-      authStore.login(data.user, data.token, variables.remember);
+    mutationFn: ({ access_key, secret_key }: authApi.LoginCredentials & { remember?: boolean }) =>
+      authApi.login({ access_key, secret_key }),
+    onSuccess: (data, variables, context) => {
+      // Update auth store (credentials are already stored by authApi.login)
+      authStore.login(data.user, variables.remember ?? false);
 
       // Invalidate and refetch user query
       queryClient.invalidateQueries({ queryKey: authKeys.user() });
 
-      options?.onSuccess?.(data, variables, undefined);
+      options?.onSuccess?.(data, variables, context);
     },
     onError: (error, variables, context) => {
       // Clear any stale auth data on login failure
@@ -135,34 +134,16 @@ export function useLogout(options?: UseMutationOptions<void, Error, void>) {
 }
 
 /**
- * Refresh token mutation
+ * Check auth status query
  */
-export function useRefreshToken(
-  options?: UseMutationOptions<string, Error, void>
-) {
-  const authStore = useAuthStore();
-
-  return useMutation({
-    mutationFn: authApi.refreshToken,
-    onSuccess: (token, variables, context) => {
-      authStore.setToken(token);
-      options?.onSuccess?.(token, variables, context);
-    },
-    ...options,
-  });
-}
-
-/**
- * Validate token query
- */
-export function useValidateToken(
+export function useCheckAuth(
   options?: Omit<UseQueryOptions<boolean>, 'queryKey' | 'queryFn'>
 ) {
   const { isAuthenticated } = useAuth();
 
   return useQuery({
     queryKey: authKeys.validate(),
-    queryFn: authApi.validateToken,
+    queryFn: authApi.checkAuth,
     enabled: isAuthenticated,
     staleTime: 60 * 1000, // 1 minute
     retry: false,
@@ -202,48 +183,3 @@ export function useRedirectIfAuthenticated(redirectTo = '/') {
   return { isAuthenticated };
 }
 
-/**
- * Change password mutation
- */
-export function useChangePassword(
-  options?: UseMutationOptions<
-    void,
-    Error,
-    { oldPassword: string; newPassword: string }
-  >
-) {
-  return useMutation({
-    mutationFn: ({ oldPassword, newPassword }) =>
-      authApi.changePassword(oldPassword, newPassword),
-    ...options,
-  });
-}
-
-/**
- * Request password reset mutation
- */
-export function useRequestPasswordReset(
-  options?: UseMutationOptions<void, Error, string>
-) {
-  return useMutation({
-    mutationFn: authApi.requestPasswordReset,
-    ...options,
-  });
-}
-
-/**
- * Reset password mutation
- */
-export function useResetPassword(
-  options?: UseMutationOptions<
-    void,
-    Error,
-    { token: string; newPassword: string }
-  >
-) {
-  return useMutation({
-    mutationFn: ({ token, newPassword }) =>
-      authApi.resetPassword(token, newPassword),
-    ...options,
-  });
-}

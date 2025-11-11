@@ -1,4 +1,5 @@
 import ky from 'ky';
+import packageJson from '../../../package.json';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'https://api.clear.ml/v2.0';
 const APP_VERSION = process.env.NEXT_PUBLIC_APP_VERSION || '2.2.0';
@@ -21,30 +22,56 @@ export interface SmHttpResponse<T = any> {
 }
 
 /**
+ * ClearML API response wrapper
+ */
+export interface ClearMLResponse<T = any> {
+  data: T;
+  meta?: {
+    total?: number;
+    page?: number;
+    page_size?: number;
+  };
+}
+
+/**
+ * ClearML credentials structure
+ */
+export interface ClearMLCredentials {
+  access_key: string;
+  secret_key: string;
+}
+
+/**
  * Base API client configured with ClearML API defaults
  */
 export const apiClient = ky.create({
   prefixUrl: API_URL,
   credentials: 'include',
   timeout: 30000,
-  headers: {
-    'Content-Type': 'application/json',
-    'X-Clearml-Client': `NextJS-${APP_VERSION}`,
-  },
   retry: {
     limit: 3,
-    methods: ['post', 'get', 'put'],
+    methods: ['get', 'post'],
     statusCodes: [408, 413, 429, 500, 502, 503, 504],
-    backoffLimit: 5000,
+    backoffLimit: 3000,
+  },
+  headers: {
+    'Content-Type': 'application/json',
+    'X-Clearml-Client': `Webapp-${packageJson.version}`,
   },
   hooks: {
     beforeRequest: [
       (request) => {
-        // Add auth token from cookie or localStorage
-        const token = getAuthToken();
-        if (token) {
-          request.headers.set('Authorization', `Bearer ${token}`);
+        // Add Basic Auth from credentials
+        const credentials = getCredentials();
+        if (credentials) {
+          const basicAuth = btoa(`${credentials.access_key}:${credentials.secret_key}`);
+          request.headers.set('Authorization', `Basic ${basicAuth}`);
         }
+      },
+    ],
+    beforeRetry: [
+      async ({ request, error, retryCount }) => {
+        console.log(`Retrying request (${retryCount}/3):`, request.url, error);
       },
     ],
     afterResponse: [
@@ -78,70 +105,66 @@ export const apiClient = ky.create({
 });
 
 /**
- * Get authentication token from storage
+ * Get ClearML credentials from storage
  */
-function getAuthToken(): string | null {
+function getCredentials(): ClearMLCredentials | null {
   if (typeof window === 'undefined') return null;
 
   // Check localStorage
-  const token = localStorage.getItem('clearml_token');
-  if (token) return token;
+  const stored = localStorage.getItem('clearml_credentials');
+  if (stored) {
+    try {
+      return JSON.parse(stored) as ClearMLCredentials;
+    } catch (e) {
+      console.error('Failed to parse stored credentials:', e);
+    }
+  }
 
-  // Check cookie
-  const cookieName = process.env.NEXT_PUBLIC_AUTH_COOKIE_NAME || 'clearml_token';
-  const cookie = document.cookie
-    .split('; ')
-    .find((row) => row.startsWith(`${cookieName}=`));
+  // Check environment variables (for development)
+  const envKey = process.env.NEXT_PUBLIC_CLEARML_ACCESS_KEY;
+  const envSecret = process.env.NEXT_PUBLIC_CLEARML_SECRET_KEY;
 
-  return cookie ? cookie.split('=')[1] : null;
+  if (envKey && envSecret) {
+    return {
+      access_key: envKey,
+      secret_key: envSecret,
+    };
+  }
+
+  return null;
 }
 
 /**
- * Set authentication token
+ * Set ClearML credentials
  */
-export function setAuthToken(token: string): void {
+export function setCredentials(credentials: ClearMLCredentials): void {
   if (typeof window === 'undefined') return;
-  localStorage.setItem('clearml_token', token);
+  localStorage.setItem('clearml_credentials', JSON.stringify(credentials));
 }
 
 /**
- * Clear authentication token
+ * Clear ClearML credentials
  */
-export function clearAuthToken(): void {
+export function clearCredentials(): void {
   if (typeof window === 'undefined') return;
-  localStorage.removeItem('clearml_token');
+  localStorage.removeItem('clearml_credentials');
 }
 
 /**
- * Generic API request wrapper
- * Automatically unwraps ClearML's response.data structure
+ * Generic API request wrapper with automatic response unwrapping
  */
 export async function apiRequest<T>(
   endpoint: string,
   body?: unknown
-): Promise<T> {
+): Promise<{ data: T; meta?: any }> {
   const response = await apiClient.post(endpoint, {
     json: body,
   });
 
-  const wrappedData = await response.json() as SmHttpResponse<T>;
+  const result = await response.json() as ClearMLResponse<T>;
 
-  // ClearML API wraps responses: { data: {...}, meta: {...} }
-  // We extract and return just the data portion
-  return wrappedData.data;
-}
-
-/**
- * API request that returns the full SmHttpResponse with meta information
- * Use this when you need access to meta fields (trx, result_code, etc.)
- */
-export async function apiRequestFull<T>(
-  endpoint: string,
-  body?: unknown
-): Promise<SmHttpResponse<T>> {
-  const response = await apiClient.post(endpoint, {
-    json: body,
-  });
-
-  return await response.json() as SmHttpResponse<T>;
+  return {
+    data: result.data,
+    meta: result.meta,
+  };
 }
