@@ -197,6 +197,7 @@ export default function TaskDetailPage({ params }: TaskDetailPageProps) {
           <TabsTrigger value="configuration">Configuration</TabsTrigger>
           <TabsTrigger value="execution">Execution</TabsTrigger>
           <TabsTrigger value="artifacts">Artifacts</TabsTrigger>
+          <TabsTrigger value="charts">Charts</TabsTrigger>
         </TabsList>
 
         {/* Info Tab */}
@@ -468,6 +469,22 @@ export default function TaskDetailPage({ params }: TaskDetailPageProps) {
               </CardContent>
             </Card>
           )}
+        </TabsContent>
+
+        {/* Charts Tab */}
+        <TabsContent value="charts">
+          {/* This will be loaded from the charts/page.tsx route */}
+          <div className="text-center py-8">
+            <p className="text-muted-foreground">
+              Please use the dedicated charts route at{' '}
+              <Link
+                href={`/tasks/${task.id}/charts`}
+                className="text-primary hover:underline"
+              >
+                /tasks/{task.id}/charts
+              </Link>
+            </p>
+          </div>
         </TabsContent>
       </Tabs>
     </div>

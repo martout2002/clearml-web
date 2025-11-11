@@ -1,3 +1,5 @@
+'use client';
+
 import {
   Card,
   CardContent,
@@ -5,9 +7,63 @@ import {
   CardHeader,
   CardTitle,
 } from '@/components/ui/card';
-import { Skeleton } from '@/components/ui/skeleton';
+import { MetricCard } from '@/components/charts/metric-card';
+import { LineChart } from '@/components/charts/line-chart';
+import { PieChart } from '@/components/charts/pie-chart';
+import { AreaChart } from '@/components/charts/area-chart';
+import { Activity, CheckCircle, Clock, TrendingUp } from 'lucide-react';
+
+// Sample data generators - in a real app, this would come from API
+function generateTaskTrendData() {
+  const data = [];
+  const today = new Date();
+  for (let i = 29; i >= 0; i--) {
+    const date = new Date(today);
+    date.setDate(date.getDate() - i);
+    data.push({
+      name: date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
+      completed: Math.floor(Math.random() * 20) + 10,
+      failed: Math.floor(Math.random() * 5),
+      running: Math.floor(Math.random() * 8) + 2,
+    });
+  }
+  return data;
+}
+
+function generateStatusDistribution() {
+  return [
+    { name: 'Completed', value: 856, color: '#10b981' },
+    { name: 'Running', value: 45, color: '#3b82f6' },
+    { name: 'Queued', value: 23, color: '#f59e0b' },
+    { name: 'Failed', value: 12, color: '#ef4444' },
+  ];
+}
+
+function generateActivityData() {
+  const data = [];
+  for (let i = 23; i >= 0; i--) {
+    const hour = 24 - i;
+    data.push({
+      name: `${hour}:00`,
+      tasks: Math.floor(Math.random() * 50) + 10,
+    });
+  }
+  return data;
+}
+
+function generateSparklineData() {
+  const data = [];
+  for (let i = 0; i < 30; i++) {
+    data.push({ value: Math.floor(Math.random() * 50) + 30 });
+  }
+  return data;
+}
 
 export default function DashboardPage() {
+  const taskTrendData = generateTaskTrendData();
+  const statusDistribution = generateStatusDistribution();
+  const activityData = generateActivityData();
+  const sparklineData = generateSparklineData();
   return (
     <div className="space-y-6">
       {/* Page header */}
@@ -20,101 +76,84 @@ export default function DashboardPage() {
 
       {/* Stats grid */}
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Total Tasks</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">1,234</div>
-            <p className="text-xs text-muted-foreground">
-              +20% from last month
-            </p>
-          </CardContent>
-        </Card>
+        <MetricCard
+          title="Total Tasks"
+          value={1234}
+          previousValue={1028}
+          data={sparklineData}
+          icon={<Activity className="h-4 w-4" />}
+          trendLabel="from last month"
+          showSparkline
+        />
 
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Active Tasks</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">45</div>
-            <p className="text-xs text-muted-foreground">
-              Currently running
-            </p>
-          </CardContent>
-        </Card>
+        <MetricCard
+          title="Active Tasks"
+          value={45}
+          previousValue={38}
+          icon={<Clock className="h-4 w-4" />}
+          description="Currently running"
+          showTrend
+          showSparkline={false}
+        />
 
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Projects</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">32</div>
-            <p className="text-xs text-muted-foreground">
-              Across all teams
-            </p>
-          </CardContent>
-        </Card>
+        <MetricCard
+          title="Completed Today"
+          value={87}
+          previousValue={72}
+          icon={<CheckCircle className="h-4 w-4" />}
+          trendLabel="vs yesterday"
+          showSparkline
+        />
 
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Models</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">128</div>
-            <p className="text-xs text-muted-foreground">
-              Ready for deployment
-            </p>
-          </CardContent>
-        </Card>
+        <MetricCard
+          title="Success Rate"
+          value={94.2}
+          previousValue={92.8}
+          format="percentage"
+          icon={<TrendingUp className="h-4 w-4" />}
+          trendLabel="vs last week"
+          showTrend
+        />
       </div>
 
-      {/* Recent activity */}
+      {/* Charts */}
       <div className="grid gap-4 md:grid-cols-2">
-        <Card>
-          <CardHeader>
-            <CardTitle>Recent Tasks</CardTitle>
-            <CardDescription>
-              Your most recently updated tasks
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-4">
-              {[1, 2, 3, 4, 5].map((i) => (
-                <div key={i} className="flex items-center gap-4">
-                  <Skeleton className="h-12 w-12 rounded-full" />
-                  <div className="flex-1 space-y-2">
-                    <Skeleton className="h-4 w-full" />
-                    <Skeleton className="h-3 w-3/4" />
-                  </div>
-                </div>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
+        <LineChart
+          data={taskTrendData}
+          series={[
+            { dataKey: 'completed', name: 'Completed', color: '#10b981' },
+            { dataKey: 'running', name: 'Running', color: '#3b82f6' },
+            { dataKey: 'failed', name: 'Failed', color: '#ef4444' },
+          ]}
+          title="Task Completion Trends"
+          description="Task status over the last 30 days"
+          height={300}
+          xAxisLabel="Date"
+          yAxisLabel="Tasks"
+        />
 
-        <Card>
-          <CardHeader>
-            <CardTitle>Active Workers</CardTitle>
-            <CardDescription>
-              Workers currently processing tasks
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-4">
-              {[1, 2, 3, 4, 5].map((i) => (
-                <div key={i} className="flex items-center gap-4">
-                  <Skeleton className="h-12 w-12 rounded-full" />
-                  <div className="flex-1 space-y-2">
-                    <Skeleton className="h-4 w-full" />
-                    <Skeleton className="h-3 w-3/4" />
-                  </div>
-                </div>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
+        <PieChart
+          data={statusDistribution}
+          title="Task Status Distribution"
+          description="Current breakdown of all tasks by status"
+          height={300}
+          showPercentage
+        />
       </div>
+
+      {/* Activity Chart */}
+      <AreaChart
+        data={activityData}
+        series={[
+          { dataKey: 'tasks', name: 'Active Tasks', color: '#3b82f6' },
+        ]}
+        title="Recent Activity"
+        description="Task activity over the last 24 hours"
+        height={300}
+        xAxisLabel="Time"
+        yAxisLabel="Active Tasks"
+        gradient
+      />
     </div>
   );
 }
