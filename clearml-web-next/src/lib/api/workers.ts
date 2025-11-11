@@ -35,15 +35,15 @@ export interface WorkerStats {
 export async function getWorkers(
   params?: GetWorkersParams
 ): Promise<PaginatedResponse<Worker>> {
-  const response = await apiRequest<{ workers: Worker[]; total: number }>(
+  const { data } = await apiRequest<{ workers: Worker[]; total: number }>(
     'workers.get_all',
     params
   );
 
   return {
-    items: response.workers || [],
-    total: response.total || 0,
-    returned: response.workers?.length || 0,
+    items: data.workers || [],
+    total: data.total || 0,
+    returned: data.workers?.length || 0,
   };
 }
 
@@ -51,23 +51,23 @@ export async function getWorkers(
  * Get a single worker by ID
  */
 export async function getWorkerById(id: string): Promise<Worker> {
-  const response = await apiRequest<{ worker: Worker }>('workers.get_by_id', {
+  const { data } = await apiRequest<{ worker: Worker }>('workers.get_by_id', {
     worker: id,
   });
 
-  return response.worker;
+  return data.worker;
 }
 
 /**
  * Get worker statistics
  */
 export async function getWorkerStats(id: string): Promise<WorkerStats> {
-  const response = await apiRequest<{ stats: WorkerStats }>(
+  const { data } = await apiRequest<{ stats: WorkerStats }>(
     'workers.get_stats',
     {
       worker: id,
     }
   );
 
-  return response.stats;
+  return data.stats;
 }

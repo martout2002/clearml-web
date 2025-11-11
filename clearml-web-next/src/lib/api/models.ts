@@ -53,15 +53,15 @@ export interface UpdateModelParams {
 export async function getModels(
   params?: GetModelsParams
 ): Promise<PaginatedResponse<Model>> {
-  const response = await apiRequest<{ models: Model[]; total: number }>(
+  const { data } = await apiRequest<{ models: Model[]; total: number }>(
     'models.get_all_ex',
     params
   );
 
   return {
-    items: response.models || [],
-    total: response.total || 0,
-    returned: response.models?.length || 0,
+    items: data.models || [],
+    total: data.total || 0,
+    returned: data.models?.length || 0,
   };
 }
 
@@ -69,21 +69,21 @@ export async function getModels(
  * Get a single model by ID
  */
 export async function getModelById(id: string): Promise<Model> {
-  const response = await apiRequest<{ model: Model }>('models.get_by_id', {
+  const { data } = await apiRequest<{ model: Model }>('models.get_by_id', {
     model: id,
   });
 
-  return response.model;
+  return data.model;
 }
 
 /**
  * Create a new model
  */
 export async function createModel(params: CreateModelParams): Promise<Model> {
-  const response = await apiRequest<{ id: string }>('models.create', params);
+  const { data } = await apiRequest<{ id: string }>('models.create', params);
 
   // Fetch the created model
-  return getModelById(response.id);
+  return getModelById(data.id);
 }
 
 /**

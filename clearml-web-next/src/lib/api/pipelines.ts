@@ -62,15 +62,15 @@ export interface UpdatePipelineParams {
 export async function getPipelines(
   params?: GetPipelinesParams
 ): Promise<PaginatedResponse<Pipeline>> {
-  const response = await apiRequest<{ pipelines: Pipeline[]; total: number }>(
+  const { data } = await apiRequest<{ pipelines: Pipeline[]; total: number }>(
     'pipelines.get_all_ex',
     params
   );
 
   return {
-    items: response.pipelines || [],
-    total: response.total || 0,
-    returned: response.pipelines?.length || 0,
+    items: data.pipelines || [],
+    total: data.total || 0,
+    returned: data.pipelines?.length || 0,
   };
 }
 
@@ -78,21 +78,21 @@ export async function getPipelines(
  * Get a single pipeline by ID
  */
 export async function getPipelineById(id: string): Promise<Pipeline> {
-  const response = await apiRequest<{ pipeline: Pipeline }>('pipelines.get_by_id', {
+  const { data } = await apiRequest<{ pipeline: Pipeline }>('pipelines.get_by_id', {
     pipeline: id,
   });
 
-  return response.pipeline;
+  return data.pipeline;
 }
 
 /**
  * Create a new pipeline
  */
 export async function createPipeline(params: CreatePipelineParams): Promise<Pipeline> {
-  const response = await apiRequest<{ id: string }>('pipelines.create', params);
+  const { data } = await apiRequest<{ id: string }>('pipelines.create', params);
 
   // Fetch the created pipeline
-  return getPipelineById(response.id);
+  return getPipelineById(data.id);
 }
 
 /**

@@ -43,15 +43,15 @@ export interface UpdateDatasetParams {
 export async function getDatasets(
   params?: GetDatasetsParams
 ): Promise<PaginatedResponse<Dataset>> {
-  const response = await apiRequest<{ datasets: Dataset[]; total: number }>(
+  const { data } = await apiRequest<{ datasets: Dataset[]; total: number }>(
     'datasets.get_all_ex',
     params
   );
 
   return {
-    items: response.datasets || [],
-    total: response.total || 0,
-    returned: response.datasets?.length || 0,
+    items: data.datasets || [],
+    total: data.total || 0,
+    returned: data.datasets?.length || 0,
   };
 }
 
@@ -59,21 +59,21 @@ export async function getDatasets(
  * Get a single dataset by ID
  */
 export async function getDatasetById(id: string): Promise<Dataset> {
-  const response = await apiRequest<{ dataset: Dataset }>('datasets.get_by_id', {
+  const { data } = await apiRequest<{ dataset: Dataset }>('datasets.get_by_id', {
     dataset: id,
   });
 
-  return response.dataset;
+  return data.dataset;
 }
 
 /**
  * Create a new dataset
  */
 export async function createDataset(params: CreateDatasetParams): Promise<Dataset> {
-  const response = await apiRequest<{ id: string }>('datasets.create', params);
+  const { data } = await apiRequest<{ id: string }>('datasets.create', params);
 
   // Fetch the created dataset
-  return getDatasetById(response.id);
+  return getDatasetById(data.id);
 }
 
 /**
@@ -99,14 +99,14 @@ export async function deleteDataset(id: string): Promise<void> {
  * Get dataset versions
  */
 export async function getDatasetVersions(id: string): Promise<DatasetVersion[]> {
-  const response = await apiRequest<{ versions: DatasetVersion[] }>(
+  const { data } = await apiRequest<{ versions: DatasetVersion[] }>(
     'datasets.get_versions',
     {
       dataset: id,
     }
   );
 
-  return response.versions || [];
+  return data.versions || [];
 }
 
 /**
@@ -126,7 +126,7 @@ export async function getDatasetStats(id: string): Promise<{
   file_count: number;
   preview?: unknown;
 }> {
-  const response = await apiRequest<{
+  const { data } = await apiRequest<{
     stats: {
       size: number;
       file_count: number;
@@ -136,5 +136,5 @@ export async function getDatasetStats(id: string): Promise<{
     dataset: id,
   });
 
-  return response.stats;
+  return data.stats;
 }

@@ -43,10 +43,14 @@ export default function LoginPage() {
 
   // Login mutation
   const loginMutation = useLogin({
-    onSuccess: () => {
+    onSuccess: (data) => {
+      console.log('✅ Login successful!', data);
+      console.log('User:', data.user);
+      // Redirect to dashboard
       router.push(redirectTo);
     },
     onError: (error) => {
+      console.error('❌ Login failed:', error);
       setServerError(
         error.message || 'Failed to create user. Please try again.'
       );
@@ -73,8 +77,14 @@ export default function LoginPage() {
     const envKey = process.env.NEXT_PUBLIC_CLEARML_ACCESS_KEY;
     const envSecret = process.env.NEXT_PUBLIC_CLEARML_SECRET_KEY;
 
+    console.log('Environment check:', {
+      hasKey: !!envKey,
+      hasSecret: !!envSecret,
+      keyPrefix: envKey?.substring(0, 10),
+    });
+
     if (!envKey || !envSecret) {
-      setServerError('ClearML credentials not configured. Please check .env.local');
+      setServerError('ClearML credentials not configured. Please check .env.local and restart the dev server.');
       return;
     }
 

@@ -49,15 +49,15 @@ export interface UpdateTaskParams {
 export async function getTasks(
   params?: GetTasksParams
 ): Promise<PaginatedResponse<Task>> {
-  const response = await apiRequest<{ tasks: Task[]; total: number }>(
+  const { data } = await apiRequest<{ tasks: Task[]; total: number }>(
     'tasks.get_all_ex',
     params
   );
 
   return {
-    items: response.tasks || [],
-    total: response.total || 0,
-    returned: response.tasks?.length || 0,
+    items: data.tasks || [],
+    total: data.total || 0,
+    returned: data.tasks?.length || 0,
   };
 }
 
@@ -65,21 +65,21 @@ export async function getTasks(
  * Get a single task by ID
  */
 export async function getTaskById(id: string): Promise<Task> {
-  const response = await apiRequest<{ task: Task }>('tasks.get_by_id', {
+  const { data } = await apiRequest<{ task: Task }>('tasks.get_by_id', {
     task: id,
   });
 
-  return response.task;
+  return data.task;
 }
 
 /**
  * Create a new task
  */
 export async function createTask(params: CreateTaskParams): Promise<Task> {
-  const response = await apiRequest<{ id: string }>('tasks.create', params);
+  const { data } = await apiRequest<{ id: string }>('tasks.create', params);
 
   // Fetch the created task
-  return getTaskById(response.id);
+  return getTaskById(data.id);
 }
 
 /**

@@ -28,15 +28,15 @@ export interface UpdateQueueParams {
 export async function getQueues(
   params?: GetQueuesParams
 ): Promise<PaginatedResponse<Queue>> {
-  const response = await apiRequest<{ queues: Queue[]; total: number }>(
+  const { data } = await apiRequest<{ queues: Queue[]; total: number }>(
     'queues.get_all',
     params
   );
 
   return {
-    items: response.queues || [],
-    total: response.total || 0,
-    returned: response.queues?.length || 0,
+    items: data.queues || [],
+    total: data.total || 0,
+    returned: data.queues?.length || 0,
   };
 }
 
@@ -44,21 +44,21 @@ export async function getQueues(
  * Get a single queue by ID
  */
 export async function getQueueById(id: string): Promise<Queue> {
-  const response = await apiRequest<{ queue: Queue }>('queues.get_by_id', {
+  const { data } = await apiRequest<{ queue: Queue }>('queues.get_by_id', {
     queue: id,
   });
 
-  return response.queue;
+  return data.queue;
 }
 
 /**
  * Create a new queue
  */
 export async function createQueue(params: CreateQueueParams): Promise<Queue> {
-  const response = await apiRequest<{ id: string }>('queues.create', params);
+  const { data } = await apiRequest<{ id: string }>('queues.create', params);
 
   // Fetch the created queue
-  return getQueueById(response.id);
+  return getQueueById(data.id);
 }
 
 /**

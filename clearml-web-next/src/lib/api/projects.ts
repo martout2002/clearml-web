@@ -33,15 +33,15 @@ export interface UpdateProjectParams {
 export async function getProjects(
   params?: GetProjectsParams
 ): Promise<PaginatedResponse<Project>> {
-  const response = await apiRequest<{ projects: Project[]; total: number }>(
+  const { data } = await apiRequest<{ projects: Project[]; total: number }>(
     'projects.get_all_ex',
     params
   );
 
   return {
-    items: response.projects || [],
-    total: response.total || 0,
-    returned: response.projects?.length || 0,
+    items: data.projects || [],
+    total: data.total || 0,
+    returned: data.projects?.length || 0,
   };
 }
 
@@ -49,14 +49,14 @@ export async function getProjects(
  * Get a single project by ID
  */
 export async function getProjectById(id: string): Promise<Project> {
-  const response = await apiRequest<{ project: Project }>(
+  const { data } = await apiRequest<{ project: Project }>(
     'projects.get_by_id',
     {
       project: id,
     }
   );
 
-  return response.project;
+  return data.project;
 }
 
 /**
@@ -65,10 +65,10 @@ export async function getProjectById(id: string): Promise<Project> {
 export async function createProject(
   params: CreateProjectParams
 ): Promise<Project> {
-  const response = await apiRequest<{ id: string }>('projects.create', params);
+  const { data } = await apiRequest<{ id: string }>('projects.create', params);
 
   // Fetch the created project
-  return getProjectById(response.id);
+  return getProjectById(data.id);
 }
 
 /**

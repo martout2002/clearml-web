@@ -34,7 +34,7 @@ const nextConfig = {
     return [
       {
         source: '/api/clearml/:path*',
-        destination: 'https://api.clear.ml/v2.0/:path*',
+        destination: 'http://localhost:8008/:path*',
       },
     ];
   },

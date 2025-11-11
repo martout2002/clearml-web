@@ -61,11 +61,19 @@ export const apiClient = ky.create({
   hooks: {
     beforeRequest: [
       (request) => {
+        console.log('🔵 API Request:', {
+          url: request.url,
+          method: request.method,
+        });
+        
         // Add Basic Auth from credentials
         const credentials = getCredentials();
         if (credentials) {
           const basicAuth = btoa(`${credentials.access_key}:${credentials.secret_key}`);
           request.headers.set('Authorization', `Basic ${basicAuth}`);
+          console.log('🔑 Added auth header:', `Basic ${credentials.access_key.substring(0, 10)}...`);
+        } else {
+          console.warn('⚠️ No credentials found!');
         }
       },
     ],
@@ -76,8 +84,15 @@ export const apiClient = ky.create({
     ],
     afterResponse: [
       async (request, options, response) => {
+        console.log('🔴 API Response:', {
+          url: request.url,
+          status: response.status,
+          statusText: response.statusText,
+        });
+        
         if (response.status === 401) {
           // Handle unauthorized - redirect to login
+          console.warn('⚠️ 401 Unauthorized - redirecting to login');
           if (typeof window !== 'undefined') {
             window.location.href = '/login';
           }
@@ -85,7 +100,7 @@ export const apiClient = ky.create({
 
         if (!response.ok) {
           // Try to parse ClearML error format
-          const error = await response.json().catch(() => ({
+          const error: any = await response.json().catch(() => ({
             meta: { result_msg: 'An error occurred' },
           }));
 
@@ -162,6 +177,8 @@ export async function apiRequest<T>(
   });
 
   const result = await response.json() as ClearMLResponse<T>;
+
+  console.log('📦 API Data received:', { endpoint, hasData: !!result.data });
 
   return {
     data: result.data,
