@@ -1,6 +1,7 @@
 import ky from 'ky';
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'https://api.clear.ml/v2.0';
+// Use local proxy to avoid CORS issues
+const API_URL = process.env.NEXT_PUBLIC_API_URL || '/api/clearml';
 
 /**
  * Base API client configured with ClearML API defaults
@@ -23,7 +24,7 @@ export const apiClient = ky.create({
       },
     ],
     afterResponse: [
-      async (request, options, response) => {
+      async (_request, _options, response) => {
         if (response.status === 401) {
           // Handle unauthorized - redirect to login
           if (typeof window !== 'undefined') {
@@ -34,7 +35,7 @@ export const apiClient = ky.create({
         if (!response.ok) {
           const error = await response.json().catch(() => ({
             message: 'An error occurred',
-          }));
+          })) as { message?: string };
           throw new Error(error.message || 'API request failed');
         }
 
@@ -60,7 +61,7 @@ function getAuthToken(): string | null {
     .split('; ')
     .find((row) => row.startsWith(`${cookieName}=`));
 
-  return cookie ? cookie.split('=')[1] : null;
+  return cookie ? cookie.split('=')[1] ?? null : null;
 }
 
 /**

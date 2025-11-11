@@ -1,5 +1,6 @@
 'use client';
 
+import { useState, useEffect } from 'react';
 import {
   Card,
   CardContent,
@@ -12,6 +13,7 @@ import { LineChart } from '@/components/charts/line-chart';
 import { PieChart } from '@/components/charts/pie-chart';
 import { AreaChart } from '@/components/charts/area-chart';
 import { Activity, CheckCircle, Clock, TrendingUp } from 'lucide-react';
+import { Skeleton } from '@/components/ui/skeleton';
 
 // Sample data generators - in a real app, this would come from API
 function generateTaskTrendData() {
@@ -60,10 +62,45 @@ function generateSparklineData() {
 }
 
 export default function DashboardPage() {
-  const taskTrendData = generateTaskTrendData();
-  const statusDistribution = generateStatusDistribution();
-  const activityData = generateActivityData();
-  const sparklineData = generateSparklineData();
+  const [mounted, setMounted] = useState(false);
+  const [taskTrendData, setTaskTrendData] = useState<any[]>([]);
+  const [statusDistribution, setStatusDistribution] = useState<any[]>([]);
+  const [activityData, setActivityData] = useState<any[]>([]);
+  const [sparklineData, setSparklineData] = useState<any[]>([]);
+
+  // Generate data only on client side after mount to avoid hydration mismatch
+  useEffect(() => {
+    setTaskTrendData(generateTaskTrendData());
+    setStatusDistribution(generateStatusDistribution());
+    setActivityData(generateActivityData());
+    setSparklineData(generateSparklineData());
+    setMounted(true);
+  }, []);
+
+  if (!mounted) {
+    return (
+      <div className="space-y-6">
+        <div>
+          <h1 className="text-3xl font-bold tracking-tight">Dashboard</h1>
+          <p className="text-muted-foreground">
+            Welcome to ClearML - Your MLOps Platform
+          </p>
+        </div>
+        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+          <Skeleton className="h-32" />
+          <Skeleton className="h-32" />
+          <Skeleton className="h-32" />
+          <Skeleton className="h-32" />
+        </div>
+        <div className="grid gap-4 md:grid-cols-2">
+          <Skeleton className="h-80" />
+          <Skeleton className="h-80" />
+        </div>
+        <Skeleton className="h-80" />
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-6">
       {/* Page header */}

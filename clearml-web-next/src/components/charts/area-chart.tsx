@@ -169,12 +169,12 @@ export function AreaChart({
           {title && <CardTitle>{title}</CardTitle>}
           {description && <CardDescription>{description}</CardDescription>}
         </CardHeader>
-        <CardContent>
+        <CardContent style={{ minHeight: height }}>
           {chartContent}
         </CardContent>
       </Card>
     );
   }
 
-  return chartContent;
+  return <div style={{ minHeight: height }}>{chartContent}</div>;
 }

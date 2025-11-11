@@ -10,7 +10,6 @@ import {
   Workflow,
   BarChart3,
   Server,
-  Globe,
   Settings,
   X,
 } from 'lucide-react';
@@ -26,7 +25,7 @@ interface SidebarProps {
 const navigation = [
   {
     name: 'Dashboard',
-    href: '/dashboard',
+    href: '/',
     icon: LayoutDashboard,
   },
   {
@@ -65,9 +64,9 @@ const navigation = [
     icon: Server,
   },
   {
-    name: 'Endpoints',
-    href: '/endpoints',
-    icon: Globe,
+    name: 'Queues',
+    href: '/queues',
+    icon: Server,
   },
   {
     name: 'Settings',
