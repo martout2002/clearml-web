@@ -141,12 +141,37 @@ export interface Dataset {
   version?: string;
   description?: string;
   created?: string;
+  last_update?: string;
   tags?: string[];
   system_tags?: string[];
   project?: {
     id: string;
     name: string;
   };
+  user?: {
+    id: string;
+    name: string;
+  };
+  company?: {
+    id: string;
+    name: string;
+  };
+  parent?: string;
+  status?: 'created' | 'in_progress' | 'published' | 'closed';
+  size?: number;
+  file_count?: number;
+  metadata?: Record<string, unknown>;
+}
+
+export interface DatasetVersion {
+  id: string;
+  version: string;
+  created?: string;
+  parent?: string;
+  status?: string;
+  size?: number;
+  file_count?: number;
+  comment?: string;
 }
 
 export interface Queue {
