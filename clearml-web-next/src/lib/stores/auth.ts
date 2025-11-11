@@ -1,19 +1,34 @@
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
 import type { User } from '@/types/api';
+import type { LoginMode, Credentials } from '@/lib/api/auth';
+
+export interface Workspace {
+  id: string;
+  name: string;
+  tier?: string;
+}
 
 export interface AuthState {
   user: User | null;
   token: string | null;
   isAuthenticated: boolean;
   rememberMe: boolean;
+  authMode: LoginMode | null;
+  credentials: Credentials | null;
+  activeWorkspace: Workspace | null;
+  userWorkspaces: Workspace[];
 }
 
 export interface AuthActions {
   setUser: (user: User | null) => void;
   setToken: (token: string | null) => void;
   setRememberMe: (remember: boolean) => void;
-  login: (user: User, token: string, remember?: boolean) => void;
+  setAuthMode: (mode: LoginMode | null) => void;
+  setCredentials: (credentials: Credentials | null) => void;
+  setActiveWorkspace: (workspace: Workspace | null) => void;
+  setWorkspaces: (workspaces: Workspace[]) => void;
+  login: (user: User, token?: string, remember?: boolean) => void;
   logout: () => void;
   updateUserPreferences: (preferences: Record<string, unknown>) => void;
 }
@@ -25,6 +40,10 @@ const initialState: AuthState = {
   token: null,
   isAuthenticated: false,
   rememberMe: false,
+  authMode: null,
+  credentials: null,
+  activeWorkspace: null,
+  userWorkspaces: [],
 };
 
 /**
@@ -35,6 +54,8 @@ const initialState: AuthState = {
  * - Token persistence in localStorage
  * - Remember me functionality
  * - User preferences management
+ * - Auth mode support (simple, password, SSO, tenant)
+ * - Workspace management
  */
 export const useAuthStore = create<AuthStore>()(
   persist(
@@ -57,16 +78,36 @@ export const useAuthStore = create<AuthStore>()(
           rememberMe: remember,
         }),
 
+      setAuthMode: (mode) =>
+        set({
+          authMode: mode,
+        }),
+
+      setCredentials: (credentials) =>
+        set({
+          credentials,
+        }),
+
+      setActiveWorkspace: (workspace) =>
+        set({
+          activeWorkspace: workspace,
+        }),
+
+      setWorkspaces: (workspaces) =>
+        set({
+          userWorkspaces: workspaces,
+        }),
+
       login: (user, token, remember = false) => {
         set({
           user,
-          token,
+          token: token || null,
           isAuthenticated: true,
           rememberMe: remember,
         });
 
-        // Store token in localStorage for API client
-        if (typeof window !== 'undefined') {
+        // Store token in localStorage for API client (if provided)
+        if (typeof window !== 'undefined' && token) {
           localStorage.setItem('clearml_token', token);
         }
       },
@@ -105,6 +146,10 @@ export const useAuthStore = create<AuthStore>()(
         token: state.rememberMe ? state.token : null,
         isAuthenticated: state.rememberMe ? state.isAuthenticated : false,
         rememberMe: state.rememberMe,
+        authMode: state.authMode, // Always persist auth mode
+        credentials: state.credentials, // Always persist credentials (for simple mode)
+        activeWorkspace: state.activeWorkspace,
+        userWorkspaces: state.userWorkspaces,
       }),
     }
   )
@@ -117,3 +162,7 @@ export const selectUser = (state: AuthStore) => state.user;
 export const selectToken = (state: AuthStore) => state.token;
 export const selectIsAuthenticated = (state: AuthStore) => state.isAuthenticated;
 export const selectRememberMe = (state: AuthStore) => state.rememberMe;
+export const selectAuthMode = (state: AuthStore) => state.authMode;
+export const selectCredentials = (state: AuthStore) => state.credentials;
+export const selectActiveWorkspace = (state: AuthStore) => state.activeWorkspace;
+export const selectUserWorkspaces = (state: AuthStore) => state.userWorkspaces;

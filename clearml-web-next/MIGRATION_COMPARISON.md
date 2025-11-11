@@ -1,714 +1,1017 @@
 # ClearML Web: Angular vs Next.js Migration Comparison
 
-## Executive Summary
+This document provides a detailed comparison between the Angular implementation and the Next.js implementation of ClearML Web, highlighting key differences, missing features, and priority fixes needed for production deployment.
 
-This document compares the Angular implementation (`clearml-web`) with the Next.js implementation (`clearml-web-next`) to identify functional gaps and create a migration plan.
+## Table of Contents
+
+- [API Client Differences](#api-client-differences)
+- [Authentication Flow Differences](#authentication-flow-differences)
+- [Missing Features by Module](#missing-features-by-module)
+- [State Management Differences](#state-management-differences)
+- [Priority Levels for Fixes](#priority-levels-for-fixes)
+- [Breaking Changes](#breaking-changes)
 
 ---
 
-## 1. API Client Implementation
+## API Client Differences
 
 ### Angular Implementation
+
 **Location**: `src/app/business-logic/api-services/api-requests.service.ts`
 
-```typescript
-@Injectable()
-export class SmApiRequestsService {
-  createRequest(request: IApiRequest): Observable<any> {
-    return this.http.request(
-      request.meta.method,
-      `${HTTP.API_BASE_URL}/${request.meta.endpoint}`,
-      {
-        params: this.getParams(request.params),
-        body: request.payload,
-        withCredentials: true
-      }
-    );
-  }
-
-  post<T>(url: string, body: any | null, options?: {...}): Observable<T> {
-    options.withCredentials = true;
-    return this.http.post<SmHttpResponse>(url, body, options)
-      .pipe(map(res => res.data));
-  }
-}
-```
-
 **Key Features**:
-- ✅ Uses `withCredentials: true` for all requests (cookie-based auth)
-- ✅ Base URL: `apiBaseUrl` from environment (defaults to `/api/v2.0`)
-- ✅ Custom header: `X-Clearml-Client: Webapp-{version}`
-- ✅ Response unwrapping: Extracts `.data` from `SmHttpResponse`
-- ✅ Auto-generated service layer for each API domain
-- ✅ HTTP Interceptor for 401 handling
+1. **Response Structure**: Uses `SmHttpResponse` interface with `.data` wrapping
+   ```typescript
+   export interface SmHttpResponse {
+     data: any;
+     meta: any;
+   }
+   ```
 
-### Next.js Implementation
+2. **Automatic Response Unwrapping**: The `post` method automatically extracts `.data`
+   ```typescript
+   return this.http.post<SmHttpResponse>(url, body, options)
+     .pipe(map(res => res.data));
+   ```
+
+3. **Client Headers**: Adds `X-Allegro-Client` header with version info
+   ```typescript
+   // From webapp-interceptor.ts
+   'X-Allegro-Client': 'Webapp-' + environment.version
+   ```
+
+4. **Retry Logic**: Implements exponential backoff for failed requests
+   ```typescript
+   // From login.service.ts
+   return this.getLoginMode().pipe(
+     retry({count: 3, delay: (err, count) => timer(500 * count)}),
+     catchError(err => {
+       this.openServerError();
+       throw err;
+     })
+   );
+   ```
+
+5. **Credentials**: Always includes credentials with `withCredentials: true`
+
+6. **Error Handling**: Centralized interceptor handles 401 errors globally
+
+### Next.js Implementation (Current)
+
 **Location**: `src/lib/api/client.ts`
 
-```typescript
-const API_URL = process.env.NEXT_PUBLIC_API_URL || '/api/clearml';
+**Current Features**:
+1. ❌ **No Response Unwrapping**: Expects flat response structure
+   ```typescript
+   const data = await response.json();
+   return data as T;  // Missing .data extraction
+   ```
 
-export const apiClient = ky.create({
-  prefixUrl: API_URL,
-  credentials: 'include',
-  timeout: 30000,
-  headers: {
-    'Content-Type': 'application/json',
-  },
-  hooks: {
-    beforeRequest: [...],
-    afterResponse: [...]
-  }
-});
-```
+2. ❌ **Missing Client Headers**: No `X-Clearml-Client` header
+   ```typescript
+   headers: {
+     'Content-Type': 'application/json',
+   }
+   // Missing: 'X-Clearml-Client': 'NextJS-' + version
+   ```
 
-**Key Features**:
-- ✅ Uses `credentials: 'include'` (equivalent to withCredentials)
-- ✅ Proxy via Next.js rewrites to avoid CORS
-- ✅ Authorization token from localStorage/cookies
-- ✅ 401 auto-redirect to `/login`
-- ❌ Missing: Custom `X-Clearml-Client` header
-- ❌ Missing: Response data unwrapping
-- ❌ Missing: Auto-generated typed service layer
+3. ❌ **No Retry Logic**: Fails immediately on network errors
 
-**Gap Analysis**:
-1. **Missing X-Clearml-Client Header**: Angular sends version info in header
-2. **Response Structure**: Angular unwraps `.data` field automatically
-3. **Type Safety**: Angular has full API service typings
-4. **Retry Logic**: Angular has sophisticated retry with exponential backoff
+4. ✅ **Credentials**: Correctly includes credentials
+   ```typescript
+   credentials: 'include',
+   ```
 
----
+5. ✅ **Error Handling**: Has basic 401 handling in afterResponse hook
 
-## 2. Routing Structure
+### Required Changes for Next.js
 
-### Angular Routes
-```
-/ → redirects to /dashboard
-/dashboard
-/projects/:projectId
-  /projects/:projectId/overview
-  /projects/:projectId/experiments
-  /projects/:projectId/models
-/experiments
-  /experiments/:experimentId/info
-  /experiments/:experimentId/execution
-  /experiments/:experimentId/hyper-params
-  /experiments/:experimentId/artifacts
-  /experiments/:experimentId/scalars
-  /experiments/:experimentId/plots
-  /experiments/:experimentId/debug-images
-  /experiments/:experimentId/logs
-/models
-  /models/:modelId/general
-  /models/:modelId/network
-  /models/:modelId/labels
-/datasets
-  /datasets/simple/:projectId
-/pipelines
-  /pipelines/:pipelineId
-/workers-and-queues
-  /workers-and-queues/queues
-  /workers-and-queues/workers
-/reports
-/settings
-/login
-```
+**Priority 1 (Blocking)**:
 
-### Next.js Routes (Current)
-```
-/ → Dashboard
-/login
-/projects
-/projects/:projectId
-/tasks
-/tasks/:taskId
-  /tasks/:taskId/info
-  /tasks/:taskId/execution
-  /tasks/:taskId/configuration
-  /tasks/:taskId/artifacts
-  /tasks/:taskId/charts
-/models
-/models/:modelId
-/datasets
-/datasets/:datasetId
-/pipelines
-/pipelines/:pipelineId
-/reports
-/workers
-/queues
-/settings
-```
+1. **Add X-Clearml-Client header**:
+   ```typescript
+   headers: {
+     'Content-Type': 'application/json',
+     'X-Clearml-Client': `NextJS-${process.env.NEXT_PUBLIC_APP_VERSION || '1.0.0'}`
+   }
+   ```
 
-**Gap Analysis**:
-1. ❌ Missing `/projects/:projectId/overview` route
-2. ❌ Missing `/tasks/:taskId/hyper-params` route
-3. ❌ Missing `/tasks/:taskId/plots` route
-4. ❌ Missing `/tasks/:taskId/debug-images` route
-5. ❌ Missing `/tasks/:taskId/logs` route
-6. ❌ Missing model detail sub-routes (network, labels, metadata)
-7. ❌ Missing `/workers-and-queues` combined view
-8. ❌ Missing experiment comparison routes
-9. ❌ Missing model comparison routes
+2. **Implement response unwrapping** to match `SmHttpResponse.data.data` pattern:
+   ```typescript
+   export async function apiRequest<T>(
+     endpoint: string,
+     body?: unknown
+   ): Promise<T> {
+     const response = await apiClient.post(endpoint, { json: body });
+     const data = await response.json();
+
+     // ClearML API returns: { data: { ...actual data }, meta: {...} }
+     return data.data as T;
+   }
+   ```
+
+3. **Add retry logic with exponential backoff**:
+   ```typescript
+   import { retry } from 'ky';
+
+   const apiClient = ky.create({
+     // ...existing config
+     retry: {
+       limit: 3,
+       methods: ['post', 'get'],
+       statusCodes: [408, 413, 429, 500, 502, 503, 504],
+       backoffLimit: 5000,
+     }
+   });
+   ```
+
+4. **Add SmHttpResponse interface**:
+   ```typescript
+   export interface SmHttpResponse<T = any> {
+     data: T;
+     meta?: {
+       id?: string;
+       trx?: string;
+       endpoint?: string;
+       result_code?: number;
+       result_subcode?: number;
+       result_msg?: string;
+     };
+   }
+   ```
 
 ---
 
-## 3. Authentication & Authorization
+## Authentication Flow Differences
 
 ### Angular Implementation
+
 **Location**: `src/app/webapp-common/shared/services/login.service.ts`
 
-```typescript
-loginFlow() {
-  // 1. Get login mode from server
-  // 2. Load credentials from credentials.json
-  // 3. Authenticate with Basic Auth
-  // 4. Store auth state in NgRx store
-  // 5. Cache login mode with TTL (10 min)
-}
+**Key Features**:
 
-// Supports multiple login modes:
-- 'simple': Auto-login with credentials
-- 'password': Username/password form
-- 'ssoOnly': SSO redirect only
-- 'tenant': Multi-tenant login
+1. **Login Modes Support**:
+   ```typescript
+   export type LoginMode = 'simple' | 'password' | 'ssoOnly' | 'error' | 'tenant';
+   ```
 
-// Basic Auth encoding:
-Authorization: Basic {base64(userKey:userSecret)}
-```
+2. **Login Flow**:
+   - First calls `login.supported_modes` endpoint to check server auth configuration
+   - Supports multiple authentication modes:
+     - `simple`: Credentials from `credentials.json` file (passwordless)
+     - `password`: Basic Auth with username/password
+     - `ssoOnly`: SSO authentication only
+     - `tenant`: Multi-tenant login with tenant selection
+     - `error`: Server unavailable fallback
 
-**Features**:
-- ✅ Multiple authentication modes
-- ✅ Credentials from `credentials.json` or env vars
-- ✅ Login mode caching with TTL
-- ✅ Auto-retry with exponential backoff
-- ✅ S3 credential management for signed URLs
-- ✅ Session persistence via cookies
+3. **Credentials Loading**:
+   ```typescript
+   initCredentials() {
+     return this.getLoginMode().pipe(
+       retry({count: 3, delay: (err, count) => timer(500 * count)}),
+       switchMap(mode => mode === loginModes.simple ?
+         this.httpClient.get('credentials.json').pipe(
+           catchError(() => of(fromEnv())),
+         ) : of(fromEnv())
+       ),
+       tap((credentials: any) => {
+         this.userKey = credentials.userKey;
+         this.userSecret = credentials.userSecret;
+         this.companyID = credentials.companyID;
+       }),
+     );
+   }
+   ```
+
+4. **Basic Auth Encoding**:
+   ```typescript
+   getHeaders(): HttpHeaders {
+     let headers = new HttpHeaders();
+     const auth = window.btoa(this.userKey + ':' + this.userSecret);
+     headers = headers.append('Authorization', 'Basic ' + auth);
+     return headers;
+   }
+   ```
+
+5. **Password Login**:
+   ```typescript
+   passwordLogin(user: string, password: string) {
+     let headers = new HttpHeaders();
+     const auth = window.btoa(user + ':' + password);
+     headers = headers.append('Authorization', 'Basic ' + auth);
+     return this.httpClient.post<AuthCreateUserResponse>(
+       `${this.basePath}/auth.login`,
+       null,
+       {headers, withCredentials: true}
+     );
+   }
+   ```
+
+6. **Simple Mode Auto-Login**:
+   ```typescript
+   login(userId: string) {
+     let headers = this.getHeaders();
+     headers = headers.append(`${this.environment().headerPrefix}-Impersonate-As`, userId);
+     return this.httpClient.post(`${this.basePath}/auth.login`, null,
+       {headers, withCredentials: true});
+   }
+   ```
+
+7. **User Creation** (for simple mode):
+   ```typescript
+   createUser(name: string) {
+     let headers = this.getHeaders();
+     headers = headers.append('Content-Type', 'application/json');
+     const data = {
+       email: uuidV1() + '@test.ai',
+       name,
+       company: this.companyID,
+       given_name: name.split(' ')[0],
+       family_name: name.split(' ')[1] ? name.split(' ')[1] : name.split(' ')[0]
+     };
+     return this.httpClient.post<{data: AuthCreateUserResponse}>(
+       `${this.basePath}/auth.create_user`,
+       data,
+       {headers}
+     ).pipe(map(x => x.data.id));
+   }
+   ```
+
+### Next.js Implementation (Current)
+
+**Location**: `src/lib/api/auth.ts`
+
+**Current Features**:
+
+1. ❌ **No Login Mode Detection**: Always assumes password-based auth
+   ```typescript
+   export async function login(
+     credentials: LoginCredentials
+   ): Promise<LoginResponse> {
+     const response = await apiRequest<{
+       token: string;
+       user: User;
+     }>('auth.login', {
+       username: credentials.username,
+       password: credentials.password,
+     });
+     // ...
+   }
+   ```
+
+2. ❌ **No credentials.json Support**: Doesn't load from credentials file
+
+3. ❌ **No Basic Auth Encoding**: Missing base64 encoding for key:secret
+
+4. ❌ **No Simple Mode Support**: Can't auto-create users or impersonate
+
+5. ❌ **Incorrect Response Unwrapping**: Doesn't handle `.data.data` pattern
+   ```typescript
+   export async function getCurrentUser(): Promise<User> {
+     const response = await apiRequest<{ user: User }>('users.get_current_user', {});
+     return response.user;  // Should be response.data.user
+   }
+   ```
+
+6. ❌ **No Tenant Support**: Missing multi-tenant login flow
+
+### Required Changes for Next.js
+
+**Priority 1 (Blocking)**:
+
+1. **Add LoginMode detection**:
+   ```typescript
+   export type LoginMode = 'simple' | 'password' | 'ssoOnly' | 'error' | 'tenant';
+
+   export interface LoginModeResponse {
+     authenticated: boolean;
+     basic: {
+       enabled: boolean;
+     };
+     sso?: {
+       enabled: boolean;
+       providers?: string[];
+     };
+     server_errors?: {
+       missed_es_upgrade?: boolean;
+       es_connection_error?: boolean;
+     };
+   }
+
+   export async function getLoginSupportedModes(): Promise<LoginModeResponse> {
+     const response = await apiClient.post('login.supported_modes', {
+       json: {}
+     });
+     const data = await response.json();
+     return data.data as LoginModeResponse;
+   }
+   ```
+
+2. **Load credentials.json**:
+   ```typescript
+   export interface Credentials {
+     userKey: string;
+     userSecret: string;
+     companyID: string;
+   }
+
+   export async function loadCredentials(): Promise<Credentials | null> {
+     try {
+       const response = await fetch('/credentials.json');
+       if (!response.ok) return null;
+       return await response.json();
+     } catch {
+       // Check environment variables as fallback
+       return {
+         userKey: process.env.NEXT_PUBLIC_USER_KEY || '',
+         userSecret: process.env.NEXT_PUBLIC_USER_SECRET || '',
+         companyID: process.env.NEXT_PUBLIC_COMPANY_ID || ''
+       };
+     }
+   }
+   ```
+
+3. **Implement Basic Auth**:
+   ```typescript
+   export async function loginWithBasicAuth(
+     username: string,
+     password: string
+   ): Promise<LoginResponse> {
+     const auth = btoa(`${username}:${password}`);
+
+     const response = await apiClient.post('auth.login', {
+       headers: {
+         'Authorization': `Basic ${auth}`,
+       },
+       credentials: 'include'
+     });
+
+     const data = await response.json();
+
+     // Store token/cookie
+     if (data.data?.token) {
+       setAuthToken(data.data.token);
+     }
+
+     return {
+       token: data.data?.token || '',
+       user: data.data?.user
+     };
+   }
+   ```
+
+4. **Support Simple Mode (auto-create user)**:
+   ```typescript
+   export async function loginSimpleMode(
+     name: string,
+     credentials: Credentials
+   ): Promise<LoginResponse> {
+     // Step 1: Create user
+     const auth = btoa(`${credentials.userKey}:${credentials.userSecret}`);
+
+     const createResponse = await apiClient.post('auth.create_user', {
+       json: {
+         email: `${crypto.randomUUID()}@test.ai`,
+         name,
+         company: credentials.companyID,
+         given_name: name.split(' ')[0],
+         family_name: name.split(' ')[1] || name.split(' ')[0]
+       },
+       headers: {
+         'Authorization': `Basic ${auth}`,
+       }
+     });
+
+     const createData = await createResponse.json();
+     const userId = createData.data.id;
+
+     // Step 2: Login as created user
+     const loginResponse = await apiClient.post('auth.login', {
+       headers: {
+         'Authorization': `Basic ${auth}`,
+         'X-Clearml-Impersonate-As': userId
+       },
+       credentials: 'include'
+     });
+
+     const loginData = await loginResponse.json();
+
+     return {
+       token: loginData.data?.token || '',
+       user: loginData.data?.user
+     };
+   }
+   ```
+
+5. **Fix getCurrentUser unwrapping**:
+   ```typescript
+   export async function getCurrentUser(): Promise<User> {
+     const response = await apiRequest<{ user: User }>('users.get_current_user', {});
+     // Response is already unwrapped by apiRequest, so:
+     return response.user;
+
+     // OR if apiRequest doesn't unwrap:
+     const response = await apiClient.post('users.get_current_user', { json: {} });
+     const data = await response.json();
+     return data.data.user;  // ClearML pattern: response.data.user
+   }
+   ```
+
+---
+
+## Missing Features by Module
+
+### Authentication Module
+
+| Feature | Angular | Next.js | Priority | Effort |
+|---------|---------|---------|----------|--------|
+| Login mode detection | ✅ | ❌ | P1 | Medium |
+| credentials.json support | ✅ | ❌ | P1 | Low |
+| Basic Auth encoding | ✅ | ❌ | P1 | Low |
+| Simple mode auto-login | ✅ | ❌ | P1 | Medium |
+| SSO support | ✅ | ❌ | P2 | High |
+| Tenant selection | ✅ | ❌ | P2 | Medium |
+| User creation (simple mode) | ✅ | ❌ | P1 | Medium |
+| Response unwrapping | ✅ | ❌ | P1 | Low |
+| Retry logic | ✅ | ❌ | P1 | Low |
+
+### Projects Module
+
+| Feature | Angular | Next.js | Priority | Effort |
+|---------|---------|---------|----------|--------|
+| Project list | ✅ | ✅ | - | - |
+| Project details | ✅ | ✅ | - | - |
+| Create/edit project | ✅ | ✅ | - | - |
+| Delete project | ✅ | ❌ | P2 | Low |
+| Archive/restore | ✅ | ❌ | P2 | Low |
+| Project statistics | ✅ | ✅ | - | - |
+| Hierarchical projects | ✅ | ❌ | P2 | High |
+| Project permissions | ✅ | ❌ | P3 | High |
+
+### Tasks Module
+
+| Feature | Angular | Next.js | Priority | Effort |
+|---------|---------|---------|----------|--------|
+| Task list | ✅ | ✅ | - | - |
+| Task details | ✅ | ✅ | - | - |
+| Task execution panel | ✅ | ✅ | - | - |
+| Task configuration | ✅ | ✅ | - | - |
+| Task artifacts | ✅ | ✅ | - | - |
+| Task charts | ✅ | ✅ | - | - |
+| Compare tasks | ✅ | ❌ | P2 | High |
+| Clone/archive | ✅ | ❌ | P2 | Medium |
+| Enqueue/dequeue | ✅ | ❌ | P1 | Medium |
+| Reset/abort/publish | ✅ | ❌ | P1 | Medium |
+| Debug samples | ✅ | ❌ | P2 | High |
+| Scalar/plot customization | ✅ | ❌ | P2 | High |
+
+### Models Module
+
+| Feature | Angular | Next.js | Priority | Effort |
+|---------|---------|---------|----------|--------|
+| Model list | ✅ | ✅ | - | - |
+| Model details | ✅ | ✅ | - | - |
+| Model versions | ✅ | ❌ | P2 | Medium |
+| Model comparison | ✅ | ❌ | P2 | High |
+| Publish/archive | ✅ | ❌ | P2 | Medium |
+| Model metadata | ✅ | ✅ | - | - |
+
+### Datasets Module
+
+| Feature | Angular | Next.js | Priority | Effort |
+|---------|---------|---------|----------|--------|
+| Dataset list | ✅ | ✅ | - | - |
+| Dataset details | ✅ | ✅ | - | - |
+| Dataset versions | ✅ | ❌ | P2 | Medium |
+| Dataset preview | ✅ | ❌ | P2 | High |
+| Dataset lineage | ✅ | ❌ | P3 | High |
+
+### Pipelines Module
+
+| Feature | Angular | Next.js | Priority | Effort |
+|---------|---------|---------|----------|--------|
+| Pipeline list | ✅ | ✅ | - | - |
+| Pipeline details | ✅ | ✅ | - | - |
+| DAG visualization | ✅ | ✅ | - | - |
+| Run pipeline | ✅ | ❌ | P1 | Medium |
+| Pipeline runs | ✅ | ❌ | P2 | High |
+| Clone pipeline | ✅ | ❌ | P2 | Medium |
+
+### Workers/Queues Module
+
+| Feature | Angular | Next.js | Priority | Effort |
+|---------|---------|---------|----------|--------|
+| Workers list | ✅ | ✅ | - | - |
+| Worker stats | ✅ | ✅ | - | - |
+| Queues list | ✅ | ✅ | - | - |
+| Queue management | ✅ | ❌ | P2 | Medium |
+| Task assignment | ✅ | ❌ | P2 | Medium |
+
+### Reports Module
+
+| Feature | Angular | Next.js | Priority | Effort |
+|---------|---------|---------|----------|--------|
+| Report list | ✅ | ✅ | - | - |
+| Report viewer | ✅ | ❌ | P2 | High |
+| Create report | ✅ | ❌ | P2 | Medium |
+| Share reports | ✅ | ❌ | P3 | Medium |
+
+### Settings Module
+
+| Feature | Angular | Next.js | Priority | Effort |
+|---------|---------|---------|----------|--------|
+| User preferences | ✅ | ✅ | - | - |
+| Workspace settings | ✅ | ❌ | P2 | Medium |
+| API credentials | ✅ | ❌ | P1 | Low |
+| User management | ✅ | ❌ | P3 | High |
+
+---
+
+## State Management Differences
+
+### Angular Implementation
+
+**Framework**: NgRx (Redux pattern)
+
+**Key Concepts**:
+1. **Store Structure**:
+   ```typescript
+   export interface UsersState {
+     currentUser: GetCurrentUserResponseUserObject;
+     activeWorkspace: GetCurrentUserResponseUserObjectCompany;
+     userWorkspaces: OrganizationGetUserCompaniesResponseCompanies[];
+     selectedWorkspaceTab: GetCurrentUserResponseUserObjectCompany;
+     workspaces: GetCurrentUserResponseUserObjectCompany[];
+     showOnlyUserWork: { [key: string]: boolean };
+     serverVersions: { server: string; api: string };
+     gettingStarted: GettingStarted;
+     settings: UsersGetCurrentUserResponseSettings;
+   }
+   ```
+
+2. **Actions**:
+   - Defined as typed actions using `createAction`
+   - Examples: `fetchCurrentUser`, `setCurrentUserName`, `logout`, `setApiVersion`
+
+3. **Reducers**:
+   - Pure functions that handle actions
+   - Use `on()` helper for action handlers
+   ```typescript
+   on(setCurrentUserName, (state, action) => ({
+     ...state,
+     currentUser: {...state.currentUser, name: action.name}
+   }))
+   ```
+
+4. **Selectors**:
+   - Use `createSelector` for memoized derived state
+   ```typescript
+   export const selectCurrentUser = createSelector(users, state => state.currentUser);
+   export const selectIsAdmin = createSelector(
+     users,
+     state => state.currentUser?.role === RoleEnum.Admin
+   );
+   ```
+
+5. **Effects** (Side effects):
+   - Handle async operations
+   - Listen to actions, perform API calls, dispatch new actions
 
 ### Next.js Implementation
-**Current Status**: ⚠️ **BASIC PLACEHOLDER**
 
-```typescript
-// src/lib/api/client.ts
-function getAuthToken(): string | null {
-  if (typeof window === 'undefined') return null;
+**Framework**: Zustand + TanStack Query
 
-  const token = localStorage.getItem('clearml_token');
-  if (token) return token;
+**Key Concepts**:
 
-  // Check cookie fallback
-  const cookie = document.cookie
-    .split('; ')
-    .find((row) => row.startsWith('clearml_token='));
+1. **Auth Store** (Zustand):
+   ```typescript
+   export interface AuthState {
+     user: User | null;
+     token: string | null;
+     isAuthenticated: boolean;
+     rememberMe: boolean;
+   }
 
-  return cookie ? cookie.split('=')[1] : null;
-}
-```
+   export interface AuthActions {
+     setUser: (user: User | null) => void;
+     setToken: (token: string | null) => void;
+     setRememberMe: (remember: boolean) => void;
+     login: (user: User, token: string, remember?: boolean) => void;
+     logout: () => void;
+     updateUserPreferences: (preferences: Record<string, unknown>) => void;
+   }
+   ```
 
-**Gap Analysis**:
-1. ❌ No login flow implementation
-2. ❌ No support for multiple auth modes
-3. ❌ No credentials.json loading
-4. ❌ No Basic Auth encoding
-5. ❌ No login mode detection/caching
-6. ❌ No auto-retry logic
-7. ❌ No S3 credential management
-8. ⚠️ Simple localStorage token (not production-ready)
+2. **Server State** (TanStack Query):
+   - Handles API data fetching, caching, and synchronization
+   - Automatic background refetching
+   - Optimistic updates
+   ```typescript
+   const { data: tasks, isLoading } = useTasks({
+     page: 1,
+     pageSize: 50,
+     project: projectId
+   });
+   ```
 
----
+3. **Differences**:
+   - **Simpler Mental Model**: Less boilerplate than NgRx
+   - **Automatic Caching**: TanStack Query handles server state caching
+   - **No Actions/Reducers**: Direct state mutations in Zustand
+   - **Hooks-based**: More React-idiomatic
+   - **Smaller Bundle**: Less code overhead
 
-## 4. State Management
+### Missing Auth Store Features
 
-### Angular: NgRx Store Architecture
+**Priority 1**:
+1. ❌ **Auth Mode Storage**: Store selected login mode
+   ```typescript
+   export interface AuthState {
+     // ... existing fields
+     authMode: LoginMode | null;
+     credentials: Credentials | null;
+   }
 
-```typescript
-// Central Store
-StoreModule.forRoot({
-  auth: authReducer,
-  router: routerReducer,
-  messages: messagesReducer,
-  recentTasks: recentTasksReducer,
-  views: viewReducer,
-  users: usersReducer,
-  login: loginReducer,
-  rootProjects: projectsReducer,
-  [userStatsFeatureKey]: usageStatsReducer
-})
+   export interface AuthActions {
+     // ... existing methods
+     setAuthMode: (mode: LoginMode) => void;
+     setCredentials: (credentials: Credentials) => void;
+   }
+   ```
 
-// Feature Modules with lazy-loaded stores
-StoreModule.forFeature('experiments', experimentsReducer)
-StoreModule.forFeature('models', modelsReducer)
-StoreModule.forFeature('datasets', datasetsReducer)
-```
+2. ❌ **Tenant Support**: Store tenant selection
+   ```typescript
+   export interface AuthState {
+     // ... existing fields
+     selectedTenant: string | null;
+     availableTenants: string[];
+   }
 
-**Meta-Reducers**:
-1. **LocalStorage Sync**: Persists specific keys to localStorage
-2. **UserPreferences Sync**: Persists to API
-3. **Router State Sync**: Syncs router with store
+   export interface AuthActions {
+     // ... existing methods
+     setTenant: (tenant: string) => void;
+     setTenants: (tenants: string[]) => void;
+   }
+   ```
 
-**Key Patterns**:
-- Actions with type constants (`AUTH_PREFIX`, `USERS_PREFIX`, etc.)
-- Effects for all API side-effects
-- Memoized selectors with `createSelector()`
-- Optimistic updates with rollback
-- Complex state composition
+3. ❌ **Workspace State**: Store active workspace
+   ```typescript
+   export interface AuthState {
+     // ... existing fields
+     activeWorkspace: Workspace | null;
+     userWorkspaces: Workspace[];
+   }
 
-### Next.js: Current Implementation
-
-```typescript
-// React Query for server state
-const queryClient = new QueryClient({
-  defaultOptions: {
-    queries: {
-      staleTime: 60 * 1000,
-      gcTime: 5 * 60 * 1000,
-      refetchOnWindowFocus: false,
-      retry: 1,
-    },
-  },
-});
-
-// URL state with nuqs
-const [statusFilter, setStatusFilter] = useQueryState(
-  'status',
-  parseAsArrayOf(parseAsString).withDefault([])
-);
-
-// Local state with useState/useReducer
-const [viewMode, setViewMode] = useState<ViewMode>('table');
-```
-
-**Gap Analysis**:
-1. ❌ No centralized application state
-2. ❌ No user preferences persistence
-3. ❌ No global UI state management (view settings, table configs)
-4. ❌ No optimistic updates
-5. ❌ No complex state composition
-6. ✅ URL state management with `nuqs` (good!)
-7. ✅ Server state caching with React Query (good!)
-
-**Recommendation**: Consider Zustand or Redux Toolkit for global state
+   export interface AuthActions {
+     // ... existing methods
+     setActiveWorkspace: (workspace: Workspace) => void;
+     setWorkspaces: (workspaces: Workspace[]) => void;
+   }
+   ```
 
 ---
 
-## 5. Key Missing Features
+## Priority Levels for Fixes
 
-### 5.1 Experiments/Tasks
+### Priority 1 (Blocking for Production)
 
-Angular has extensive experiment functionality:
+**Timeline**: Immediate (Current Sprint)
 
-1. **Multiple View Modes**
-   - Table view with customizable columns
-   - Card/Grid view
-   - Comparison view (side-by-side)
+**Issues**:
 
-2. **Detail Tabs** (Next.js Missing):
-   - ❌ Hyper-parameters tab
-   - ❌ Plots tab (custom visualizations)
-   - ❌ Debug Images tab
-   - ❌ Logs tab (console output)
-   - ✅ Info, Execution, Artifacts (have basic structure)
+1. **API Client - Response Unwrapping** ⚠️
+   - **Impact**: ALL API calls fail or return incorrect data
+   - **File**: `src/lib/api/client.ts`
+   - **Fix**: Implement `.data` extraction from `SmHttpResponse`
+   - **Effort**: 1-2 hours
+   - **Status**: ❌ Not started
 
-3. **Advanced Table Features**:
-   - ❌ Column customization
-   - ❌ Column reordering
-   - ❌ Save table configuration
-   - ❌ Multi-column sorting
-   - ❌ Advanced filtering
-   - ❌ Bulk operations
+2. **API Client - X-Clearml-Client Header** ⚠️
+   - **Impact**: Server may reject requests or behave unexpectedly
+   - **File**: `src/lib/api/client.ts`
+   - **Fix**: Add header with version info
+   - **Effort**: 30 minutes
+   - **Status**: ❌ Not started
 
-4. **Comparison Features**:
-   - ❌ Compare multiple experiments
-   - ❌ Diff view for parameters
-   - ❌ Parallel coordinates plot
-   - ❌ Scatter plot matrix
+3. **API Client - Retry Logic** ⚠️
+   - **Impact**: Network errors cause immediate failures
+   - **File**: `src/lib/api/client.ts`
+   - **Fix**: Add exponential backoff retry
+   - **Effort**: 1 hour
+   - **Status**: ❌ Not started
 
-### 5.2 Models
+4. **Auth - Login Mode Detection** ⚠️
+   - **Impact**: Can't connect to servers with different auth configs
+   - **File**: `src/lib/api/auth.ts`
+   - **Fix**: Call `login.supported_modes` before login
+   - **Effort**: 2-3 hours
+   - **Status**: ❌ Not started
 
-Angular model features:
+5. **Auth - credentials.json Support** ⚠️
+   - **Impact**: Simple mode (passwordless) auth doesn't work
+   - **File**: `src/lib/api/auth.ts`
+   - **Fix**: Load and use credentials from file/env
+   - **Effort**: 1-2 hours
+   - **Status**: ❌ Not started
 
-1. **Detail Tabs** (Next.js Missing):
-   - ❌ Network architecture visualization
-   - ❌ Labels management
-   - ❌ Metadata editor
-   - ❌ Related tasks view
-   - ❌ Scalars from model
-   - ❌ Plots from model
+6. **Auth - Basic Auth Encoding** ⚠️
+   - **Impact**: Authentication fails for all modes
+   - **File**: `src/lib/api/auth.ts`
+   - **Fix**: Implement base64(key:secret) encoding
+   - **Effort**: 30 minutes
+   - **Status**: ❌ Not started
 
-2. **Model Operations**:
-   - ❌ Publish/Archive
-   - ❌ Clone model
-   - ❌ Download model
-   - ❌ Model lineage graph
+7. **Auth Store - Mode Support** ⚠️
+   - **Impact**: Can't persist auth mode selection
+   - **File**: `src/lib/stores/auth.ts`
+   - **Fix**: Add authMode and credentials fields
+   - **Effort**: 1 hour
+   - **Status**: ❌ Not started
 
-### 5.3 Datasets
+**Total Effort**: 1-2 days
 
-Angular dataset features:
+### Priority 2 (Important for Feature Parity)
 
-1. **Version Management**:
-   - ❌ Dataset versions/lineage
-   - ❌ Version comparison
-   - ❌ Parent-child relationships
+**Timeline**: Next 2-4 weeks
 
-2. **Dataset Operations**:
-   - ❌ Preview dataset content
-   - ❌ Dataset statistics
-   - ❌ Download dataset
-   - ❌ Dataset metadata editor
+**Issues**:
 
-### 5.4 Pipelines
+1. **Task Actions** (enqueue, abort, reset, publish)
+   - **Effort**: 3-5 days
 
-Angular pipeline features:
+2. **Model Versions Management**
+   - **Effort**: 2-3 days
 
-1. **Visualization**:
-   - ✅ DAG visualization (Next.js has basic version)
-   - ❌ Step-by-step execution tracking
-   - ❌ Live status updates
-   - ❌ Error highlighting
+3. **Dataset Versions Management**
+   - **Effort**: 2-3 days
 
-2. **Pipeline Operations**:
-   - ❌ Run pipeline with parameters
-   - ❌ Pause/Resume pipeline
-   - ❌ Pipeline templates
-   - ❌ Schedule pipeline runs
+4. **Task Comparison**
+   - **Effort**: 5-7 days
 
-### 5.5 Workers & Queues
+5. **Pipeline Run Management**
+   - **Effort**: 3-4 days
 
-Angular worker features:
+6. **Queue Management**
+   - **Effort**: 2-3 days
 
-1. **Combined View**:
-   - ❌ `/workers-and-queues` route with tabs
-   - ❌ Worker stats dashboard
-   - ❌ Queue management UI
+7. **Workspace Settings**
+   - **Effort**: 3-4 days
 
-2. **Worker Operations**:
-   - ❌ Register new worker
-   - ❌ Worker activity monitoring
-   - ❌ Assign tasks to workers
-   - ❌ Worker resource usage
+8. **SSO Authentication**
+   - **Effort**: 5-7 days
 
-3. **Queue Operations**:
-   - ❌ Create/Edit queues
-   - ❌ Queue priority management
-   - ❌ Task assignment rules
-   - ❌ Queue statistics
+9. **Tenant Selection**
+   - **Effort**: 2-3 days
 
-### 5.6 Global Features
+10. **Report Viewer**
+    - **Effort**: 5-7 days
 
-1. **Search**:
-   - ❌ Global search across all entities
-   - ❌ Search history
-   - ❌ Saved searches
+**Total Effort**: 6-8 weeks
 
-2. **Notifications**:
-   - ❌ Real-time notifications
-   - ❌ Task completion alerts
-   - ❌ Error notifications
-   - ❌ System messages
+### Priority 3 (Nice to Have)
 
-3. **User Preferences**:
-   - ❌ Theme selection (light/dark)
-   - ❌ Table defaults
-   - ❌ Notification settings
-   - ❌ Privacy settings
+**Timeline**: Future iterations
 
-4. **Admin Features**:
-   - ❌ User management
-   - ❌ Workspace settings
-   - ❌ API credentials management
-   - ❌ Usage statistics
+**Issues**:
+
+1. **Project Permissions Management**
+   - **Effort**: 7-10 days
+
+2. **Dataset Lineage Visualization**
+   - **Effort**: 5-7 days
+
+3. **User Management (Admin)**
+   - **Effort**: 7-10 days
+
+4. **Share Reports**
+   - **Effort**: 3-5 days
+
+5. **Debug Samples Advanced Features**
+   - **Effort**: 7-10 days
+
+**Total Effort**: 6-8 weeks
 
 ---
 
-## 6. Data Models & API Structure
+## Breaking Changes
 
-### Angular API Response Structure
+### API Patterns
 
+**Angular Pattern**:
 ```typescript
-interface SmHttpResponse<T = any> {
-  data: T;        // Actual data payload
-  meta?: {        // Optional metadata
-    total?: number;
-    page?: number;
-    page_size?: number;
-  };
-}
+// Request
+this.http.post<{data: UsersGetAllResponse}>(`${this.basePath}/users.get_all`, null)
+  .pipe(map(x => x.data.users));
 
-// Example: tasks.get_all_ex response
+// Response structure
 {
   "data": {
-    "tasks": [...],
-    "total": 1234
+    "users": [...]
+  },
+  "meta": {
+    "id": "...",
+    "trx": "..."
   }
 }
 ```
 
-### Next.js Current Structure
-Currently makes raw API calls without unwrapping:
-
+**Next.js Pattern (Current - INCORRECT)**:
 ```typescript
-// Should be updated to match Angular structure
-export async function apiRequest<T>(
-  endpoint: string,
-  body?: unknown
-): Promise<T> {
-  const response = await apiClient.post(endpoint, { json: body });
-  const data = await response.json();
-  return data as T;  // ❌ Should unwrap .data field
+// Request
+const response = await apiRequest<{ user: User }>('users.get_current_user', {});
+return response.user;  // ❌ Missing .data extraction
+
+// Expected response structure (INCORRECT)
+{
+  "user": {...}
 }
 ```
 
-**Fix Needed**:
+**Next.js Pattern (Corrected)**:
 ```typescript
-interface ClearMLResponse<T = any> {
-  data: T;
-  meta?: {
-    total?: number;
-    page?: number;
-    page_size?: number;
-  };
-}
+// Request
+const response = await apiClient.post('users.get_current_user', { json: {} });
+const data = await response.json();
+return data.data.user;  // ✅ Correct: response.data.user
 
-export async function apiRequest<T>(
-  endpoint: string,
-  body?: unknown
-): Promise<T> {
-  const response = await apiClient.post(endpoint, { json: body });
-  const result = await response.json() as ClearMLResponse<T>;
-  return result.data;  // ✅ Unwrap data field
-}
-```
-
----
-
-## 7. Implementation Priority Matrix
-
-### Priority 1: Critical for MVP (Must Have)
-
-1. **API Client Improvements**
-   - [ ] Add X-Clearml-Client header with version
-   - [ ] Response data unwrapping (.data field)
-   - [ ] Retry logic with exponential backoff
-   - [ ] Better error handling
-
-2. **Authentication Flow**
-   - [ ] Login mode detection
-   - [ ] Basic Auth implementation
-   - [ ] Credentials.json loading
-   - [ ] Session management
-
-3. **Core Task/Experiment Features**
-   - [ ] Hyper-parameters tab
-   - [ ] Plots tab
-   - [ ] Debug Images tab
-   - [ ] Console Logs tab
-
-### Priority 2: Important (Should Have)
-
-4. **Table Enhancements**
-   - [ ] Column customization
-   - [ ] Save table state
-   - [ ] Multi-sort
-   - [ ] Advanced filters
-
-5. **Model Details**
-   - [ ] Network architecture view
-   - [ ] Labels management
-   - [ ] Metadata editor
-
-6. **Worker & Queue Management**
-   - [ ] Combined workers-and-queues view
-   - [ ] Queue operations
-   - [ ] Worker monitoring
-
-### Priority 3: Nice to Have (Could Have)
-
-7. **Comparison Features**
-   - [ ] Experiment comparison
-   - [ ] Model comparison
-   - [ ] Diff views
-
-8. **Advanced Visualizations**
-   - [ ] Parallel coordinates
-   - [ ] Scatter plot matrix
-   - [ ] Custom plot types
-
-9. **Global Features**
-   - [ ] Global search
-   - [ ] Notifications system
-   - [ ] User preferences
-
----
-
-## 8. Recommended Next Steps
-
-### Phase 1: Foundation (Week 1-2)
-1. Fix API client to match Angular behavior
-2. Implement proper authentication flow
-3. Add missing response unwrapping
-4. Set up global state management (Zustand)
-
-### Phase 2: Core Features (Week 3-4)
-1. Add missing task/experiment tabs
-2. Implement table customization
-3. Add model detail views
-4. Implement workers & queues management
-
-### Phase 3: Advanced Features (Week 5-6)
-1. Comparison views
-2. Advanced visualizations
-3. Global search
-4. User preferences system
-
-### Phase 4: Polish (Week 7-8)
-1. Notifications
-2. Real-time updates
-3. Performance optimization
-4. Cross-browser testing
-
----
-
-## 9. Code Examples: What to Implement
-
-### Example 1: Add X-Clearml-Client Header
-
-```typescript
-// src/lib/api/client.ts
-import packageJson from '../../package.json';
-
-export const apiClient = ky.create({
-  prefixUrl: API_URL,
-  credentials: 'include',
-  timeout: 30000,
-  headers: {
-    'Content-Type': 'application/json',
-    'X-Clearml-Client': `Webapp-${packageJson.version}`,  // ✅ Add this
+// Actual response structure
+{
+  "data": {
+    "user": {...}
   },
-  // ...
-});
-```
-
-### Example 2: Response Unwrapping
-
-```typescript
-// src/lib/api/client.ts
-interface ClearMLResponse<T = any> {
-  data: T;
-  meta?: {
-    total?: number;
-    page?: number;
-    page_size?: number;
-  };
-}
-
-export async function apiRequest<T>(
-  endpoint: string,
-  body?: unknown
-): Promise<{ data: T; meta?: any }> {
-  const response = await apiClient.post(endpoint, { json: body });
-  const result = await response.json() as ClearMLResponse<T>;
-
-  return {
-    data: result.data,
-    meta: result.meta
-  };
+  "meta": {
+    "id": "...",
+    "trx": "..."
+  }
 }
 ```
 
-### Example 3: Retry Logic
+### Authentication Flow
 
+**Angular Flow**:
+1. Call `login.supported_modes` → get auth config
+2. Check if `simple` mode → load `credentials.json`
+3. If simple: auto-create user → impersonate → login
+4. If password: prompt credentials → Basic Auth login
+5. If SSO: redirect to SSO provider
+6. Store session cookie (server-side)
+
+**Next.js Flow (Current - INCORRECT)**:
+1. ❌ No mode detection
+2. ❌ Always assume password mode
+3. ❌ No credentials loading
+4. ❌ No simple mode support
+5. ❌ No SSO support
+6. ✅ Store token in localStorage
+
+**Next.js Flow (Corrected)**:
+1. Call `login.supported_modes` → get auth config
+2. If simple mode detected → load `credentials.json` or env vars
+3. Show appropriate login UI based on mode
+4. Execute mode-specific auth flow
+5. Store token + mode in localStorage/auth store
+6. Support session cookies for SSO
+
+### Environment Configuration
+
+**Angular**:
 ```typescript
-// src/lib/api/client.ts
-export const apiClient = ky.create({
-  // ...
-  retry: {
-    limit: 3,
-    methods: ['get', 'post'],
-    statusCodes: [408, 413, 429, 500, 502, 503, 504],
-    backoffLimit: 3000,
-  },
-  hooks: {
-    beforeRetry: [
-      async ({ request, error, retryCount }) => {
-        console.log(`Retrying request (${retryCount}/3):`, request.url);
-      },
-    ],
-  },
-});
+// src/environments/base.ts
+export interface Environment {
+  apiBaseUrl: string;
+  headerPrefix: string;  // 'X-Clearml'
+  version: string;
+  userKey: string;
+  userSecret: string;
+  companyID: string;
+  // ... 50+ more fields
+}
 ```
 
-### Example 4: Global State with Zustand
-
-```typescript
-// src/lib/store/use-app-store.ts
-import { create } from 'zustand';
-import { persist } from 'zustand/middleware';
-
-interface AppState {
-  theme: 'light' | 'dark';
-  sidebarOpen: boolean;
-  tableConfigs: Record<string, any>;
-  userPreferences: UserPreferences;
-
-  setTheme: (theme: 'light' | 'dark') => void;
-  toggleSidebar: () => void;
-  setTableConfig: (table: string, config: any) => void;
-  updatePreferences: (prefs: Partial<UserPreferences>) => void;
-}
-
-export const useAppStore = create<AppState>()(
-  persist(
-    (set) => ({
-      theme: 'light',
-      sidebarOpen: true,
-      tableConfigs: {},
-      userPreferences: {},
-
-      setTheme: (theme) => set({ theme }),
-      toggleSidebar: () => set((state) => ({ sidebarOpen: !state.sidebarOpen })),
-      setTableConfig: (table, config) =>
-        set((state) => ({
-          tableConfigs: { ...state.tableConfigs, [table]: config }
-        })),
-      updatePreferences: (prefs) =>
-        set((state) => ({
-          userPreferences: { ...state.userPreferences, ...prefs }
-        })),
-    }),
-    {
-      name: 'clearml-app-storage',
-      partialize: (state) => ({
-        theme: state.theme,
-        tableConfigs: state.tableConfigs,
-        userPreferences: state.userPreferences,
-      }),
-    }
-  )
-);
+**Next.js**:
+```bash
+# .env.local
+NEXT_PUBLIC_API_URL=https://api.clear.ml/v2.0
+NEXT_PUBLIC_APP_VERSION=1.0.0
+NEXT_PUBLIC_USER_KEY=...
+NEXT_PUBLIC_USER_SECRET=...
+NEXT_PUBLIC_COMPANY_ID=...
 ```
 
 ---
 
-## 10. Summary
+## Implementation Checklist
 
-### Current State
-The Next.js migration has established:
-- ✅ Basic routing structure
-- ✅ UI components with shadcn/ui
-- ✅ Chart components
-- ✅ React Query for data fetching
-- ✅ Basic API client
+### Phase 1: API Client Fixes (Priority 1)
 
-### Major Gaps
-- ❌ ~60% of Angular features missing
-- ❌ Authentication not fully implemented
-- ❌ No global state management
-- ❌ Missing critical tabs and views
-- ❌ API response handling incomplete
+- [ ] Add `SmHttpResponse` interface
+- [ ] Implement automatic response unwrapping in `apiRequest()`
+- [ ] Add `X-Clearml-Client` header with version
+- [ ] Implement retry logic with exponential backoff
+- [ ] Add error response parsing
+- [ ] Update all API endpoint calls to use new pattern
+- [ ] Add unit tests for API client
 
-### Estimated Effort
-- **Full feature parity**: 6-8 weeks with 1 developer
-- **MVP with core features**: 3-4 weeks
-- **Basic usability**: 1-2 weeks (Priority 1 items)
+### Phase 2: Authentication Fixes (Priority 1)
 
-### Recommendation
-Start with **Priority 1** items to achieve basic functional parity, then incrementally add Priority 2 and 3 features based on user feedback.
+- [ ] Add `LoginMode` types and interfaces
+- [ ] Implement `getLoginSupportedModes()` function
+- [ ] Add `loadCredentials()` function for credentials.json
+- [ ] Implement `loginWithBasicAuth()` function
+- [ ] Implement `loginSimpleMode()` with user creation
+- [ ] Fix `getCurrentUser()` response unwrapping
+- [ ] Update login page to support multiple modes
+- [ ] Add mode selection UI
+
+### Phase 3: Auth Store Updates (Priority 1)
+
+- [ ] Add `authMode` field to store
+- [ ] Add `credentials` field to store
+- [ ] Add `setAuthMode()` action
+- [ ] Add `setCredentials()` action
+- [ ] Persist auth mode in localStorage
+- [ ] Update login flow to store mode
+- [ ] Add tenant fields (for future P2 support)
+
+### Phase 4: Testing & Validation
+
+- [ ] Test against ClearML community server
+- [ ] Test against ClearML enterprise server
+- [ ] Test simple mode (passwordless)
+- [ ] Test password mode
+- [ ] Test response unwrapping for all endpoints
+- [ ] Test retry logic with network errors
+- [ ] Verify X-Clearml-Client header is sent
+- [ ] Load test with concurrent requests
+
+---
+
+## Migration Success Metrics
+
+### Technical Metrics
+
+1. **API Compatibility**: 100% compatible with ClearML API v2.0+
+2. **Response Handling**: All endpoints correctly unwrap `.data.data` pattern
+3. **Authentication**: Support all auth modes (simple, password, SSO)
+4. **Error Rate**: < 0.1% for network errors (with retry)
+5. **Performance**: API response time within 10% of Angular version
+
+### Feature Parity Metrics
+
+1. **Priority 1 Features**: 100% complete
+2. **Priority 2 Features**: 80% complete (within 8 weeks)
+3. **Priority 3 Features**: Backlog (future)
+
+### User Experience Metrics
+
+1. **Login Success Rate**: > 99%
+2. **Page Load Time**: < 2s for initial load
+3. **Time to Interactive**: < 3s
+4. **Error Messages**: Clear, actionable messages for all failure cases
+
+---
+
+## Resources
+
+### Angular Implementation References
+
+- **API Service**: `src/app/business-logic/api-services/api-requests.service.ts`
+- **Login Service**: `src/app/webapp-common/shared/services/login.service.ts`
+- **API Models**: `src/app/business-logic/model/api-request.ts`
+- **Interceptor**: `src/app/webapp-common/core/interceptors/webapp-interceptor.ts`
+- **Environment**: `src/environments/base.ts`
+- **Users Reducer**: `src/app/webapp-common/core/reducers/users-reducer.ts`
+
+### Next.js Implementation Files
+
+- **API Client**: `src/lib/api/client.ts`
+- **Auth API**: `src/lib/api/auth.ts`
+- **Auth Store**: `src/lib/stores/auth.ts`
+- **Login Page**: `src/app/(auth)/login/page.tsx`
+- **Auth Hook**: `src/lib/hooks/use-auth.ts`
+
+### ClearML API Documentation
+
+- API Base URL: `https://api.clear.ml/v2.0`
+- Endpoint Format: `{base_url}/{service}.{method}`
+- Examples:
+  - `login.supported_modes`
+  - `auth.login`
+  - `auth.create_user`
+  - `users.get_current_user`
+  - `tasks.get_all`
+
+---
+
+## Conclusion
+
+The Next.js migration is well underway with solid foundation work completed. However, **Priority 1 issues are blocking production deployment**. The main issues are:
+
+1. **API Response Handling**: The ClearML API uses a nested `.data.data` structure that isn't currently being unwrapped
+2. **Authentication Flow**: Missing support for multiple auth modes, especially the `simple` (passwordless) mode
+3. **Client Headers**: Missing required `X-Clearml-Client` header
+4. **Retry Logic**: No resilience for network errors
+
+**Estimated effort to unblock**: 1-2 days of focused development
+
+Once Priority 1 issues are resolved, the application will be **production-ready** for basic use cases, with Priority 2 features to follow over the next 6-8 weeks.
