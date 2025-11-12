@@ -1,0 +1,88 @@
+<div class="project-lineage-container">
+  <!-- Header -->
+  <div class="lineage-header">
+    <div class="header-left">
+      <button mat-icon-button (click)="navigateToTable()" title="Back to experiments table">
+        <mat-icon>arrow_back</mat-icon>
+      </button>
+      <h2>Project Lineage</h2>
+      <span class="tree-count" *ngIf="hasLineage()">{{treeCount()}} lineage tree(s)</span>
+    </div>
+
+    <div class="header-controls">
+      <button
+        mat-stroked-button
+        (click)="toggleFilterChanged()"
+        [class.active]="filterChangedOnly()">
+        <mat-icon>filter_list</mat-icon>
+        Show Changes Only
+      </button>
+      <button
+        mat-stroked-button
+        (click)="toggleMetrics()">
+        <mat-icon>{{showMetrics() ? 'visibility_off' : 'visibility'}}</mat-icon>
+        {{showMetrics() ? 'Hide' : 'Show'}} Metrics
+      </button>
+    </div>
+  </div>
+
+  <!-- Loading state -->
+  <div *ngIf="loading()" class="loading-container">
+    <mat-spinner diameter="60"></mat-spinner>
+    <p>Loading project lineage data...</p>
+  </div>
+
+  <!-- Empty state -->
+  <div *ngIf="!loading() && !hasLineage()" class="empty-state">
+    <mat-icon>account_tree</mat-icon>
+    <p>No lineage data available</p>
+    <small>This project has no experiments with parent-child relationships</small>
+  </div>
+
+  <!-- Multiple Lineage Trees -->
+  <div *ngIf="!loading() && hasLineage()" class="lineage-trees-container">
+    <div *ngFor="let tree of lineageTrees(); let treeIndex = index" class="lineage-tree">
+      <div class="tree-header">
+        <h3>Lineage Tree {{treeIndex + 1}}</h3>
+        <span class="node-count">{{tree.flat().length}} task(s)</span>
+      </div>
+
+      <div class="dag-container" #dagContainer>
+        <div class="dag-content">
+          <div *ngFor="let row of tree; let rowIndex = index" class="level" [style.width.px]="chartWidth()">
+            <sm-lineage-node
+              *ngFor="let node of row"
+              #nodeEl
+              [attr.data-node-id]="node.id"
+              [node]="node"
+              [selected]="selectedNode()?.id === node.id"
+              [showMetrics]="showMetrics()"
+              [highlightChanges]="filterChangedOnly()"
+              (nodeClick)="selectNode(node)"
+              (navigateClick)="navigateToTask(node.taskId)">
+            </sm-lineage-node>
+          </div>
+
+          <!-- SVG Arrow layer for this tree -->
+          <svg
+            class="arrows"
+            [attr.viewBox]="'0 0 ' + chartWidth() + ' ' + (50 + 132 * tree.length)">
+            <g *ngFor="let arrow of highlightedArrows()" [class.selected]="arrow.selected">
+              <path
+                [attr.d]="arrow.path"
+                fill="none"
+                stroke-width="2"
+                stroke="var(--color-border)">
+              </path>
+              <polygon
+                points="0,-6 12,0, 0,6"
+                [attr.transform]="arrow.headTransform"
+                fill="var(--color-border)">
+              </polygon>
+            </g>
+          </svg>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>

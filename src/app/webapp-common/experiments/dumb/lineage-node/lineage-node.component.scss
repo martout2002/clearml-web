@@ -1,0 +1,327 @@
+.lineage-node {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  width: 220px;
+  min-height: 100px;
+  background: var(--color-card-background, #fff);
+  border: 2px solid var(--color-border, #e0e0e0);
+  border-radius: 8px;
+  padding: 0.75rem;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  z-index: 10;
+
+  &:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    border-color: var(--color-primary, #1976d2);
+  }
+
+  &.selected {
+    border-color: var(--color-primary, #1976d2);
+    border-width: 3px;
+    box-shadow: 0 0 0 3px rgba(25, 118, 210, 0.1);
+  }
+
+  &.has-changes {
+    border-color: var(--color-warning, #ff9800);
+    background: rgba(255, 152, 0, 0.05);
+  }
+}
+
+// Section node specific styles
+.lineage-node[data-node-type="artifacts"],
+.lineage-node[data-node-type="hyperparams"],
+.lineage-node[data-node-type="input-models"],
+.lineage-node[data-node-type="output-models"] {
+  width: 220px;
+  min-height: 120px;
+  border-style: dashed;
+  padding: 0.5rem;
+  
+  .node-header .node-icon mat-icon {
+    font-size: 1.25rem;
+    width: 1.25rem;
+    height: 1.25rem;
+  }
+  
+  .node-body {
+    margin-bottom: 0.25rem;
+  }
+  
+  .node-footer {
+    padding-top: 0.25rem;
+  }
+}
+
+.lineage-node[data-node-type="artifacts"] {
+  border-color: #7e57c2;
+  background: rgba(126, 87, 194, 0.03);
+  
+  .node-header .node-icon mat-icon {
+    color: #7e57c2;
+  }
+  
+  &:hover {
+    border-color: #7e57c2;
+    box-shadow: 0 4px 12px rgba(126, 87, 194, 0.25);
+  }
+}
+
+.lineage-node[data-node-type="hyperparams"] {
+  border-color: #26a69a;
+  background: rgba(38, 166, 154, 0.03);
+  
+  .node-header .node-icon mat-icon {
+    color: #26a69a;
+  }
+  
+  &:hover {
+    border-color: #26a69a;
+    box-shadow: 0 4px 12px rgba(38, 166, 154, 0.25);
+  }
+}
+
+.lineage-node[data-node-type="input-models"] {
+  border-color: #66bb6a;
+  background: rgba(102, 187, 106, 0.03);
+  
+  .node-header .node-icon mat-icon {
+    color: #66bb6a;
+  }
+  
+  &:hover {
+    border-color: #66bb6a;
+    box-shadow: 0 4px 12px rgba(102, 187, 106, 0.25);
+  }
+}
+
+.lineage-node[data-node-type="output-models"] {
+  border-color: #ef5350;
+  background: rgba(239, 83, 80, 0.03);
+  
+  .node-header .node-icon mat-icon {
+    color: #ef5350;
+  }
+  
+  &:hover {
+    border-color: #ef5350;
+    box-shadow: 0 4px 12px rgba(239, 83, 80, 0.25);
+  }
+}
+
+.node-header {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.5rem;
+  margin-bottom: 0.75rem;
+
+  .node-icon {
+    flex-shrink: 0;
+
+    mat-icon {
+      color: var(--color-primary, #1976d2);
+      font-size: 1.5rem;
+      width: 1.5rem;
+      height: 1.5rem;
+    }
+  }
+
+  .node-title {
+    flex: 1;
+    min-width: 0;
+
+    .task-name {
+      display: block;
+      font-weight: 600;
+      font-size: 0.875rem;
+      color: var(--color-text-primary, #333);
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .model-name {
+      display: flex;
+      align-items: center;
+      gap: 0.25rem;
+      font-size: 0.75rem;
+      color: var(--color-text-secondary, #666);
+      margin-top: 0.25rem;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+
+      .small-icon {
+        font-size: 0.875rem;
+        width: 0.875rem;
+        height: 0.875rem;
+      }
+    }
+  }
+}
+
+.node-body {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  margin-bottom: 0.5rem;
+
+  .status-badge {
+    display: inline-block;
+    padding: 0.25rem 0.5rem;
+    border-radius: 4px;
+    font-size: 0.7rem;
+    font-weight: 500;
+    text-transform: uppercase;
+    background: var(--color-grey-light, #f5f5f5);
+    color: var(--color-text-secondary, #666);
+    max-width: fit-content;
+
+    &.completed {
+      background: #e8f5e9;
+      color: #2e7d32;
+    }
+
+    &.running {
+      background: #e3f2fd;
+      color: #1565c0;
+    }
+
+    &.failed {
+      background: #ffebee;
+      color: #c62828;
+    }
+
+    &.stopped {
+      background: #fff3e0;
+      color: #e65100;
+    }
+
+    &.created,
+    &.queued {
+      background: #f3e5f5;
+      color: #6a1b9a;
+    }
+  }
+
+  .changes-indicator {
+    display: flex;
+    align-items: center;
+    gap: 0.25rem;
+    font-size: 0.75rem;
+    color: var(--color-warning, #ff9800);
+
+    mat-icon {
+      font-size: 1rem;
+      width: 1rem;
+      height: 1rem;
+    }
+  }
+
+  .metrics-preview {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+    padding: 0.5rem;
+    background: var(--color-grey-lighter, #fafafa);
+    border-radius: 4px;
+    font-size: 0.7rem;
+
+    .metric-item {
+      color: var(--color-text-secondary, #666);
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+  }
+}
+
+.node-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.25rem;
+  padding-top: 0.5rem;
+  border-top: 1px solid var(--color-border, #e0e0e0);
+  min-height: 40px;
+
+  .info-button,
+  .navigate-button {
+    width: 32px;
+    height: 32px;
+    flex-shrink: 0;
+
+    mat-icon {
+      font-size: 1.125rem;
+      width: 1.125rem;
+      height: 1.125rem;
+    }
+
+    &:hover {
+      background: var(--color-primary, #1976d2);
+      color: white;
+    }
+  }
+
+  .info-button {
+    mat-icon {
+      color: var(--color-primary, #1976d2);
+    }
+
+    &:hover mat-icon {
+      color: white;
+    }
+  }
+}
+
+.node-tooltip {
+  position: absolute;
+  top: calc(100% + 8px);
+  left: 50%;
+  transform: translateX(-50%);
+  background: var(--color-tooltip-background, #333);
+  color: var(--color-tooltip-text, #fff);
+  padding: 0.75rem;
+  border-radius: 6px;
+  font-size: 0.75rem;
+  min-width: 200px;
+  max-width: 300px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+  z-index: 1000;
+  pointer-events: none;
+
+  &::before {
+    content: '';
+    position: absolute;
+    bottom: 100%;
+    left: 50%;
+    transform: translateX(-50%);
+    border: 6px solid transparent;
+    border-bottom-color: var(--color-tooltip-background, #333);
+  }
+
+  .tooltip-row {
+    margin-bottom: 0.5rem;
+
+    &:last-child {
+      margin-bottom: 0;
+    }
+
+    strong {
+      display: block;
+      margin-bottom: 0.25rem;
+    }
+
+    ul {
+      margin: 0.25rem 0 0 0;
+      padding-left: 1rem;
+      list-style: disc;
+
+      li {
+        margin-bottom: 0.125rem;
+      }
+    }
+  }
+}

@@ -21,6 +21,8 @@ import {
   ExperimentInfoHyperParametersFormContainerComponent
 } from './containers/experiment-info-hyper-parameters-form-container/experiment-info-hyper-parameters-form-container.component';
 import {ExperimentInfoGeneralComponent} from './containers/experiment-info-general/experiment-info-general.component';
+import {ExperimentInfoLineageComponent} from './containers/experiment-info-lineage/experiment-info-lineage.component';
+import {ProjectLineageViewComponent} from './containers/project-lineage-view/project-lineage-view.component';
 import {
   ExperimentOutputComponent
 } from '~/features/experiments/containers/experiment-ouptut/experiment-output.component';
@@ -57,6 +59,11 @@ export const routes: Routes = [
     path: '',
     component: ExperimentsComponent,
     children: [
+      {
+        path: 'lineage',
+        component: ProjectLineageViewComponent,
+        data: {minimized: false}
+      },
       {
         path: 'compare',
         canActivate: [compareNavigationGuard],
@@ -123,6 +130,7 @@ export const routes: Routes = [
             ]
           },
           {path: 'general', component: ExperimentInfoGeneralComponent, data: {minimized: true}, canDeactivate: []},
+          {path: 'lineage', component: ExperimentInfoLineageComponent, data: {minimized: true}, pathMatch: 'full'},
           {path: 'scalars', component: ExperimentOutputScalarsComponent, data: {minimized: true}, pathMatch: 'full'},
           {path: 'plots', component: ExperimentOutputPlotsComponent, data: {minimized: true}, pathMatch: 'full'},
           {path: 'debugImages', component: DebugImagesComponent, data: {minimized: true}},
@@ -172,6 +180,7 @@ export const routes: Routes = [
         ]
       },
       {path: 'general', component: ExperimentInfoGeneralComponent, data: {}},
+      {path: 'lineage', component: ExperimentInfoLineageComponent, data: {}},
       {path: 'scalars', component: ExperimentOutputScalarsComponent, data: {}},
       {path: 'plots', component: ExperimentOutputPlotsComponent, data: {}},
       {path: 'debugImages', component: DebugImagesComponent},

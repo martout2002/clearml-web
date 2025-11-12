@@ -1,0 +1,83 @@
+<div class="experiment-lineage-container">
+  <!-- Header with controls -->
+  <div class="lineage-header">
+    <h3>Model Lineage</h3>
+    <div class="lineage-controls">
+      <button
+        mat-stroked-button
+        (click)="toggleFilterChanged()"
+        [class.active]="filterChangedOnly()">
+        <mat-icon>filter_list</mat-icon>
+        Show Changes Only
+      </button>
+      <button
+        mat-stroked-button
+        (click)="toggleMetrics()">
+        <mat-icon>{{showMetrics() ? 'visibility_off' : 'visibility'}}</mat-icon>
+        {{showMetrics() ? 'Hide' : 'Show'}} Metrics
+      </button>
+    </div>
+  </div>
+
+  <!-- Loading state -->
+  @if (loading()) {
+    <div class="loading-container">
+      <mat-spinner diameter="50"></mat-spinner>
+      <p>Loading lineage data...</p>
+    </div>
+  }
+
+  <!-- Empty state -->
+  @if (!loading() && dagModel().length === 0) {
+    <div class="empty-state">
+      <mat-icon>account_tree</mat-icon>
+      <p>No lineage data available</p>
+      <small>This experiment has no parent or child tasks</small>
+    </div>
+  }
+
+  <!-- DAG Visualization -->
+  @if (!loading() && dagModel().length > 0) {
+    <div class="dag-container" #dagContainer>
+      <div class="dag-content">
+        @for (row of dagModel(); track $index) {
+          <div class="level" [style.width.px]="chartWidth()">
+            @for (node of row; track node.id) {
+              <sm-lineage-node
+                #nodeEl
+                [attr.data-node-id]="node.id"
+                [node]="node"
+                [selected]="selectedNode()?.id === node.id"
+                [showMetrics]="showMetrics()"
+                [highlightChanges]="filterChangedOnly()"
+                (nodeClick)="selectNode(node)"
+                (navigateClick)="navigateToTask(node.taskId)">
+              </sm-lineage-node>
+            }
+          </div>
+        }
+
+        <!-- SVG Arrow layer -->
+        <svg
+          class="arrows"
+          [attr.viewBox]="'0 0 ' + chartWidth() + ' ' + chartHeight()">
+          @for (arrow of highlightedArrows(); track arrow.path) {
+            <g [class.selected]="arrow.selected">
+              <path
+                [attr.d]="arrow.path"
+                fill="none"
+                stroke-width="2"
+                stroke="var(--color-border)">
+              </path>
+              <polygon
+                points="0,-6 12,0, 0,6"
+                [attr.transform]="arrow.headTransform"
+                fill="var(--color-border)">
+              </polygon>
+            </g>
+          }
+        </svg>
+      </div>
+    </div>
+  }
+</div>

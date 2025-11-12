@@ -87,6 +87,10 @@ import {MatButton, MatIconButton} from '@angular/material/button';
 import {GraphSettingsBarComponent} from '@common/shared/experiment-graphs/graph-settings-bar/graph-settings-bar.component';
 import {MatSlideToggle} from '@angular/material/slide-toggle';
 import {ExperimentDetailsComponent} from '@common/experiments/dumb/experiment-details/experiment-details.component';
+import {ExperimentInfoLineageComponent} from '@common/experiments/containers/experiment-info-lineage/experiment-info-lineage.component';
+import {LineageNodeComponent} from '@common/experiments/dumb/lineage-node/lineage-node.component';
+import {LineageNodeDetailsPopoverComponent} from '@common/experiments/dumb/lineage-node-details-popover/lineage-node-details-popover.component';
+import {ProjectLineageViewComponent} from '@common/experiments/containers/project-lineage-view/project-lineage-view.component';
 
 
 @NgModule({
@@ -180,6 +184,10 @@ import {ExperimentDetailsComponent} from '@common/experiments/dumb/experiment-de
     ExperimentInfoArtifactItemComponent,
     ExperimentArtifactItemViewComponent,
     ExperimentInfoEditDescriptionComponent,
+    ExperimentInfoLineageComponent,
+    LineageNodeComponent,
+    LineageNodeDetailsPopoverComponent,
+    ProjectLineageViewComponent,
   ],
   exports: [
     ExperimentsComponent,

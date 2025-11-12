@@ -1,0 +1,237 @@
+<div class="lineage-details-popover">
+  <div class="popover-header">
+    <mat-icon>{{getHeaderIcon()}}</mat-icon>
+    <span class="header-title">{{getHeaderTitle()}}</span>
+  </div>
+
+  @if (!hasAnyData) {
+    <div class="no-data">
+      <mat-icon>info_outline</mat-icon>
+      <p>No additional data available</p>
+    </div>
+  }
+
+  @if (hasAnyData) {
+    <div class="popover-content">
+      <!-- Show only relevant section for section nodes -->
+      @if (node.type === 'artifacts' && hasArtifacts) {
+        <div class="details-section">
+          <div class="section-header">
+            <mat-icon class="section-icon">inventory_2</mat-icon>
+            <span class="section-title">Artifacts ({{node.artifacts?.length || 0}})</span>
+          </div>
+          <div class="section-content">
+            @for (artifact of node.artifacts; track artifact.key) {
+              <div class="artifact-item">
+                <mat-icon class="item-icon">{{getArtifactIcon(artifact)}}</mat-icon>
+                <div class="item-details">
+                  <div class="item-name" [title]="artifact.key">{{artifact.key}}</div>
+                  <div class="item-meta">
+                    <span class="artifact-type">{{artifact.type || 'unknown'}}</span>
+                    @if (artifact.content_size) {
+                      <span class="artifact-size">{{formatFileSize(artifact.content_size)}}</span>
+                    }
+                  </div>
+                  @if (artifact.uri) {
+                    <div class="item-uri" [title]="artifact.uri">{{truncate(artifact.uri, 60)}}</div>
+                  }
+                </div>
+              </div>
+            }
+          </div>
+        </div>
+      }
+
+      @if (node.type === 'hyperparams' && hasHyperparams) {
+        <div class="details-section">
+          <div class="section-header">
+            <mat-icon class="section-icon">tune</mat-icon>
+            <span class="section-title">Hyperparameters</span>
+          </div>
+          <div class="section-content">
+            @for (section of getAllHyperparamSections(); track section) {
+              <div class="hyperparam-section">
+                <div class="hyperparam-section-title">{{section}}</div>
+                @for (key of getAllHyperparamKeys(section); track key) {
+                  <div class="hyperparam-item">
+                    <span class="hyperparam-key">{{key}}:</span>
+                    <span class="hyperparam-value">{{getHyperparamValue(section, key)}}</span>
+                  </div>
+                }
+              </div>
+            }
+          </div>
+        </div>
+      }
+
+      @if (node.type === 'input-models' && hasInputModels) {
+        <div class="details-section">
+          <div class="section-header">
+            <mat-icon class="section-icon">input</mat-icon>
+            <span class="section-title">Input Models ({{node.inputModels?.length || 0}})</span>
+          </div>
+          <div class="section-content">
+            @for (modelItem of node.inputModels; track modelItem.name) {
+              <div class="model-item">
+                <mat-icon class="item-icon">model_training</mat-icon>
+                <div class="item-details">
+                  <div class="item-name" [title]="modelItem.name">{{modelItem.name}}</div>
+                  @if (modelItem.model?.id) {
+                    <div class="item-meta">ID: {{truncate(modelItem.model.id, 30)}}</div>
+                  }
+                  @if (modelItem.model?.uri) {
+                    <div class="item-uri" [title]="modelItem.model.uri">{{truncate(modelItem.model.uri, 60)}}</div>
+                  }
+                </div>
+              </div>
+            }
+          </div>
+        </div>
+      }
+
+      @if (node.type === 'output-models' && hasOutputModels) {
+        <div class="details-section">
+          <div class="section-header">
+            <mat-icon class="section-icon">output</mat-icon>
+            <span class="section-title">Output Models ({{node.outputModels?.length || 0}})</span>
+          </div>
+          <div class="section-content">
+            @for (modelItem of node.outputModels; track modelItem.name) {
+              <div class="model-item">
+                <mat-icon class="item-icon">model_training</mat-icon>
+                <div class="item-details">
+                  <div class="item-name" [title]="modelItem.name">{{modelItem.name}}</div>
+                  @if (modelItem.model?.id) {
+                    <div class="item-meta">ID: {{truncate(modelItem.model.id, 30)}}</div>
+                  }
+                  @if (modelItem.model?.uri) {
+                    <div class="item-uri" [title]="modelItem.model.uri">{{truncate(modelItem.model.uri, 60)}}</div>
+                  }
+                </div>
+              </div>
+            }
+          </div>
+        </div>
+      }
+
+      <!-- For task/model nodes, show all sections -->
+      @if (node.type === 'task' || node.type === 'model') {
+        @if (hasArtifacts) {
+          <div class="details-section">
+            <div class="section-header">
+              <mat-icon class="section-icon">inventory_2</mat-icon>
+              <span class="section-title">Artifacts ({{node.artifacts?.length || 0}})</span>
+            </div>
+            <div class="section-content">
+              @for (artifact of getArtifactsList(); track artifact.key) {
+                <div class="artifact-item">
+                  <mat-icon class="item-icon">{{getArtifactIcon(artifact)}}</mat-icon>
+                  <div class="item-details">
+                    <div class="item-name" [title]="artifact.key">{{artifact.key}}</div>
+                    <div class="item-meta">
+                      <span class="artifact-type">{{artifact.type || 'unknown'}}</span>
+                      @if (artifact.content_size) {
+                        <span class="artifact-size">{{formatFileSize(artifact.content_size)}}</span>
+                      }
+                    </div>
+                    @if (artifact.uri) {
+                      <div class="item-uri" [title]="artifact.uri">{{truncate(artifact.uri, 60)}}</div>
+                    }
+                  </div>
+                </div>
+              }
+              @if ((node.artifacts?.length || 0) > 10) {
+                <div class="more-items">+{{(node.artifacts?.length || 0) - 10}} more artifacts</div>
+              }
+            </div>
+          </div>
+        }
+
+        <!-- Input Models/Datasets Section -->
+        @if (hasInputModels) {
+          <div class="details-section">
+            <div class="section-header">
+              <mat-icon class="section-icon">input</mat-icon>
+              <span class="section-title">Input Models ({{node.inputModels?.length || 0}})</span>
+            </div>
+            <div class="section-content">
+              @for (modelItem of getInputModelsList(); track modelItem.name) {
+                <div class="model-item">
+                  <mat-icon class="item-icon">model_training</mat-icon>
+                  <div class="item-details">
+                    <div class="item-name" [title]="modelItem.name">{{modelItem.name}}</div>
+                    @if (modelItem.model?.id) {
+                      <div class="item-meta">ID: {{truncate(modelItem.model.id, 30)}}</div>
+                    }
+                  </div>
+                </div>
+              }
+              @if ((node.inputModels?.length || 0) > 5) {
+                <div class="more-items">+{{(node.inputModels?.length || 0) - 5}} more models</div>
+              }
+            </div>
+          </div>
+        }
+
+        <!-- Output Models Section -->
+        @if (hasOutputModels) {
+          <div class="details-section">
+            <div class="section-header">
+              <mat-icon class="section-icon">output</mat-icon>
+              <span class="section-title">Output Models ({{node.outputModels?.length || 0}})</span>
+            </div>
+            <div class="section-content">
+              @for (modelItem of getOutputModelsList(); track modelItem.name) {
+                <div class="model-item">
+                  <mat-icon class="item-icon">model_training</mat-icon>
+                  <div class="item-details">
+                    <div class="item-name" [title]="modelItem.name">{{modelItem.name}}</div>
+                    @if (modelItem.model?.id) {
+                      <div class="item-meta">ID: {{truncate(modelItem.model.id, 30)}}</div>
+                    }
+                  </div>
+                </div>
+              }
+              @if ((node.outputModels?.length || 0) > 5) {
+                <div class="more-items">+{{(node.outputModels?.length || 0) - 5}} more models</div>
+              }
+            </div>
+          </div>
+        }
+
+        <!-- Hyperparameters Section -->
+        @if (hasHyperparams) {
+          <div class="details-section">
+            <div class="section-header">
+              <mat-icon class="section-icon">tune</mat-icon>
+              <span class="section-title">Hyperparameters</span>
+            </div>
+            <div class="section-content">
+              @for (section of hyperparamSections; track section) {
+                <div class="hyperparam-section">
+                  <div class="hyperparam-section-title">{{section}}</div>
+                  @for (key of getHyperparamKeys(section); track key) {
+                    <div class="hyperparam-item">
+                      <span class="hyperparam-key">{{key}}:</span>
+                      <span class="hyperparam-value">{{getHyperparamValue(section, key)}}</span>
+                    </div>
+                  }
+                  @if (Object.keys(node.hyperparams?.[section] || {}).length > 5) {
+                    <div class="more-items-inline">+{{Object.keys(node.hyperparams?.[section] || {}).length - 5}} more</div>
+                  }
+                </div>
+              }
+              @if (Object.keys(node.hyperparams || {}).length > 5) {
+                <div class="more-items">+{{Object.keys(node.hyperparams || {}).length - 5}} more sections</div>
+              }
+            </div>
+          </div>
+        }
+      }
+    </div>
+  }
+
+  <div class="popover-footer">
+    <small class="footer-text">Click the node to navigate to full details</small>
+  </div>
+</div>
