@@ -438,15 +438,15 @@ export class ExperimentLineageService {
 
     nodes.forEach(node => {
       // Create graph node with explicit dimensions for dagre layout
-      // These dimensions should match the foreignObject size in the template
-      // Node is 220x140 + padding = 240x160
+      // These dimensions MUST exactly match the foreignObject size in the template
+      // for arrows to connect to the correct points on the visible node
       graphNodes.push({
         id: node.id,
         label: node.taskName,
         data: node, // Store original LineageNode for custom template
         dimension: {
-          width: 240,
-          height: 160
+          width: 220,
+          height: 140
         }
       });
 
