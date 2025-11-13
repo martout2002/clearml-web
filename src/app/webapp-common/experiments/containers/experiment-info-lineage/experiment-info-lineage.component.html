@@ -60,10 +60,10 @@
         <!-- Custom node template -->
         <ng-template #nodeTemplate let-node>
           <svg:foreignObject
-            [attr.width]="240"
-            [attr.height]="150"
-            [attr.x]="-120"
-            [attr.y]="-75">
+            [attr.width]="260"
+            [attr.height]="180"
+            [attr.x]="-130"
+            [attr.y]="-90">
             <xhtml:div class="node-wrapper">
               <sm-lineage-node
                 [node]="node.data"
@@ -82,7 +82,9 @@
           <svg:g class="edge">
             <svg:path
               class="line"
+              [attr.d]="link.line"
               stroke-width="2"
+              fill="none"
               [class.selected]="selectedNode()?.id === link.source || selectedNode()?.id === link.target">
             </svg:path>
             @if (link.label) {

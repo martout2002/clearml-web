@@ -437,11 +437,16 @@ export class ExperimentLineageService {
     const taskSectionNodes = new Map<string, string[]>();
 
     nodes.forEach(node => {
-      // Create graph node
+      // Create graph node with explicit dimensions for dagre layout
+      // These dimensions should match the foreignObject size in the template
       graphNodes.push({
         id: node.id,
         label: node.taskName,
-        data: node // Store original LineageNode for custom template
+        data: node, // Store original LineageNode for custom template
+        dimension: {
+          width: 260,
+          height: 180
+        }
       });
 
       // Track section nodes belonging to tasks
@@ -488,6 +493,14 @@ export interface NgxGraphNode {
   id: string;
   label: string;
   data?: LineageNode;
+  dimension?: {
+    width: number;
+    height: number;
+  };
+  position?: {
+    x: number;
+    y: number;
+  };
 }
 
 export interface NgxGraphLink {
