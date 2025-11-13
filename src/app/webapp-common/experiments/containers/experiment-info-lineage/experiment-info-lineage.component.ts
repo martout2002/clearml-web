@@ -1,13 +1,12 @@
 import {Component, inject, OnDestroy, OnInit, signal, computed, viewChildren, viewChild, ElementRef, effect, DestroyRef} from '@angular/core';
 import {Store} from '@ngrx/store';
 import {Observable, Subject} from 'rxjs';
-import {filter, takeUntil} from 'rxjs/operators';
+import {filter, takeUntil, distinctUntilChanged} from 'rxjs/operators';
 import {ActivatedRoute, Router} from '@angular/router';
 import {selectSelectedExperiment} from '~/features/experiments/reducers';
 import {IExperimentInfo} from '~/features/experiments/shared/experiment-info.model';
 import {ExperimentLineageService, LineageNode} from './experiment-lineage.service';
 import {getBoxToBoxArrow} from 'curved-arrows';
-import {selectScaleFactor} from '@common/core/reducers/view.reducer';
 
 @Component({
   selector: 'sm-experiment-info-lineage',
@@ -32,9 +31,6 @@ export class ExperimentInfoLineageComponent implements OnInit, OnDestroy {
     filter(exp => !!exp)
   );
 
-  // Scale factor for arrow positioning
-  private scale = this.store.selectSignal(selectScaleFactor);
-  private ratio = computed(() => this.scale() / 100);
   public diagramRect: DOMRect;
 
   // Signals for reactive state
@@ -59,23 +55,31 @@ export class ExperimentInfoLineageComponent implements OnInit, OnDestroy {
     }));
   });
 
+  private drawingArrows = false;
+
+  constructor() {
+    // Effect to redraw arrows when dagModel changes
+    effect(() => {
+      const model = this.dagModel();
+      if (model && model.length > 0 && !this.drawingArrows) {
+        // Use setTimeout to ensure DOM has updated and Angular has rendered attributes
+        setTimeout(() => this.drawArrows(), 300);
+      }
+    });
+  }
+
   ngOnInit(): void {
     this.experiment$
-      .pipe(takeUntil(this.destroy$))
+      .pipe(
+        distinctUntilChanged((prev, curr) => prev?.id === curr?.id),
+        takeUntil(this.destroy$)
+      )
       .subscribe(experiment => {
+        console.log('experiment$ emitted (after distinctUntilChanged):', experiment?.id);
         if (experiment) {
           this.loadLineage(experiment);
         }
       });
-
-    // Effect to redraw arrows when dagModel changes
-    effect(() => {
-      const model = this.dagModel();
-      if (model && model.length > 0) {
-        // Use setTimeout to ensure DOM has updated and Angular has rendered attributes
-        setTimeout(() => this.drawArrows(), 300);
-      }
-    }, {allowSignalWrites: true});
   }
 
   ngOnDestroy(): void {
@@ -89,12 +93,7 @@ export class ExperimentInfoLineageComponent implements OnInit, OnDestroy {
       const nodes = await this.lineageService.buildLineageGraph(experiment.id);
       const dagLayout = this.lineageService.convertToDagModel(nodes);
       this.dagModel.set(dagLayout);
-      
-      // Wait for DOM to update then draw arrows
-      setTimeout(() => {
-        console.log('Manually calling drawArrows after loadLineage');
-        this.drawArrows();
-      }, 500);
+      // Effect will handle drawing arrows automatically
     } catch (error) {
       console.error('Failed to load lineage:', error);
     } finally {
@@ -103,38 +102,39 @@ export class ExperimentInfoLineageComponent implements OnInit, OnDestroy {
   }
 
   private drawArrows(): void {
+    if (this.drawingArrows) {
+      return;
+    }
+
+    this.drawingArrows = true;
     const arrows: Arrow[] = [];
     const dagModel = this.dagModel();
     const nodeElements = this.nodeElements();
 
-    console.log('drawArrows called - dagModel:', dagModel?.length, 'levels');
-
     // Return early if no nodes or no container
     if (!dagModel || dagModel.length === 0 || !nodeElements || nodeElements.length === 0) {
-      console.log('Early return - no dagModel or nodeElements');
       this.arrows.set([]);
+      this.drawingArrows = false;
       return;
     }
 
     // Get container rect for positioning
     const containerElement = this.dagContainer();
     if (!containerElement) {
-      console.log('No container element');
       this.arrows.set([]);
+      this.drawingArrows = false;
       return;
     }
     this.diagramRect = containerElement.nativeElement.getBoundingClientRect();
 
     // Flatten dag model to get all nodes
     const allNodes = dagModel.flat();
-    console.log('All nodes:', allNodes.map(n => ({ id: n.id, type: n.type, parentIds: n.parentIds })));
     
     // Build a map of node IDs to elements by querying the DOM directly
     const nodeElementsMap = new Map<string, HTMLElement>();
     const container = this.dagContainer()?.nativeElement;
     if (container) {
       const nodeElements = container.querySelectorAll('sm-lineage-node[data-node-id]');
-      console.log('Found DOM elements:', nodeElements.length);
       nodeElements.forEach((el: HTMLElement) => {
         const nodeId = el.getAttribute('data-node-id');
         if (nodeId) {
@@ -142,8 +142,6 @@ export class ExperimentInfoLineageComponent implements OnInit, OnDestroy {
         }
       });
     }
-    
-    console.log('Node elements map size:', nodeElementsMap.size, 'keys:', Array.from(nodeElementsMap.keys()));
 
     // Draw arrows for each node's parent connections
     allNodes.forEach(node => {
@@ -178,15 +176,16 @@ export class ExperimentInfoLineageComponent implements OnInit, OnDestroy {
           const childOffsetTop = childElement.offsetTop;
 
           // Use getBoxToBoxArrow to calculate arrow path
+          // Note: getBoundingClientRect() returns actual rendered size, no need to adjust by ratio
           const [sx, sy, c1x, c1y, c2x, c2y, ex, ey, ae] = getBoxToBoxArrow(
             parentOffsetLeft,
             parentOffsetTop,
-            fromRect.width / this.ratio(),
-            fromRect.height / this.ratio(),
+            fromRect.width,
+            fromRect.height,
             childOffsetLeft,
             childOffsetTop,
-            toRect.width / this.ratio(),
-            toRect.height / this.ratio(),
+            toRect.width,
+            toRect.height,
             {padStart: 0, padEnd: 7}
           );
 
@@ -201,8 +200,8 @@ export class ExperimentInfoLineageComponent implements OnInit, OnDestroy {
       });
     });
 
-    console.log('Total arrows created:', arrows.length);
     this.arrows.set(arrows);
+    this.drawingArrows = false;
   }
 
   public selectNode(node: LineageNode): void {

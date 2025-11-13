@@ -7,7 +7,6 @@ import {selectRouterProjectId} from '@common/core/reducers/projects.reducer';
 import {ExperimentLineageService, LineageNode} from '../experiment-info-lineage/experiment-lineage.service';
 import {Arrow} from '../experiment-info-lineage/experiment-info-lineage.component';
 import {getBoxToBoxArrow} from 'curved-arrows';
-import {selectScaleFactor} from '@common/core/reducers/view.reducer';
 
 @Component({
   selector: 'sm-project-lineage-view',
@@ -26,9 +25,6 @@ export class ProjectLineageViewComponent implements OnInit, OnDestroy {
   nodeElements = viewChildren<ElementRef>('nodeEl');
   dagContainers = viewChildren<ElementRef<HTMLDivElement>>('dagContainer');
 
-  // Scale factor for arrow positioning
-  private scale = this.store.selectSignal(selectScaleFactor);
-  private ratio = computed(() => this.scale() / 100);
   public diagramRect: DOMRect;
 
   // Signals for reactive state
@@ -57,6 +53,21 @@ export class ProjectLineageViewComponent implements OnInit, OnDestroy {
     }));
   });
 
+  private drawingArrows = false;
+
+  constructor() {
+    // Effect to redraw arrows when lineage trees change
+    effect(() => {
+      const trees = this.lineageTrees();
+      if (trees && trees.length > 0 && !this.drawingArrows) {
+        // Use setTimeout to ensure DOM has updated
+        setTimeout(() => {
+          this.drawArrows();
+        }, 300);
+      }
+    });
+  }
+
   ngOnInit(): void {
     this.store.select(selectRouterProjectId)
       .pipe(
@@ -67,15 +78,6 @@ export class ProjectLineageViewComponent implements OnInit, OnDestroy {
         this.projectId.set(projectId);
         this.loadProjectLineage(projectId);
       });
-
-    // Effect to redraw arrows when lineage trees change
-    effect(() => {
-      const trees = this.lineageTrees();
-      if (trees && trees.length > 0) {
-        // Use setTimeout to ensure DOM has updated
-        setTimeout(() => this.drawArrows(), 50);
-      }
-    }, {allowSignalWrites: true});
   }
 
   ngOnDestroy(): void {
@@ -115,8 +117,11 @@ export class ProjectLineageViewComponent implements OnInit, OnDestroy {
       // Separate into distinct lineage trees (nodes without cross-connections)
       const trees = this.separateIntoTrees(allNodes);
       this.lineageTrees.set(trees);
-
-      this.drawArrows();
+      
+      // Manual fallback call with longer delay to ensure DOM is ready
+      setTimeout(() => {
+        this.drawArrows();
+      }, 500);
     } catch (error) {
       console.error('Failed to load project lineage:', error);
     } finally {
@@ -186,14 +191,22 @@ export class ProjectLineageViewComponent implements OnInit, OnDestroy {
   }
 
   private drawArrows(): void {
+    if (this.drawingArrows) {
+      return;
+    }
+
+    this.drawingArrows = true;
     const arrows: Arrow[] = [];
     const trees = this.lineageTrees();
     const nodeElements = this.nodeElements();
     const dagContainers = this.dagContainers();
 
+
     // Return early if no nodes or no containers
     if (!trees || trees.length === 0 || !nodeElements || nodeElements.length === 0 || !dagContainers || dagContainers.length === 0) {
+      console.log('Early return - missing data');
       this.arrows.set([]);
+      this.drawingArrows = false;
       return;
     }
 
@@ -204,6 +217,14 @@ export class ProjectLineageViewComponent implements OnInit, OnDestroy {
 
     // Process each tree
     trees.forEach((tree, treeIndex) => {
+      const container = dagContainers[treeIndex]?.nativeElement;
+      if (!container) {
+        return;
+      }
+
+      // Get container position for relative calculations
+      const containerRect = container.getBoundingClientRect();
+
       // Flatten tree to get all nodes
       const allNodes = tree.flat();
 
@@ -220,40 +241,56 @@ export class ProjectLineageViewComponent implements OnInit, OnDestroy {
             return;
           }
 
-          // Find DOM elements for parent and child nodes
-          const parentElement = nodeElements.find((el: ElementRef) => {
+          // Find DOM elements for parent and child nodes within this specific tree container
+          const parentComponent = Array.from(nodeElements).find((el: ElementRef) => {
             const nodeComponent = el.nativeElement;
+            // Make sure the element is within this specific container
+            if (!container.contains(nodeComponent)) {
+              return false;
+            }
             return nodeComponent.querySelector(`[data-node-id="${parentId}"]`) ||
                    nodeComponent.getAttribute('data-node-id') === parentId;
           });
 
-          const childElement = nodeElements.find((el: ElementRef) => {
+          const childComponent = Array.from(nodeElements).find((el: ElementRef) => {
             const nodeComponent = el.nativeElement;
+            // Make sure the element is within this specific container
+            if (!container.contains(nodeComponent)) {
+              return false;
+            }
             return nodeComponent.querySelector(`[data-node-id="${node.id}"]`) ||
                    nodeComponent.getAttribute('data-node-id') === node.id;
           });
 
-          // If both elements found, calculate arrow path
-          if (parentElement?.nativeElement && childElement?.nativeElement) {
-            const fromRect = parentElement.nativeElement.getBoundingClientRect();
-            const toRect = childElement.nativeElement.getBoundingClientRect();
+          // If both components found, get the actual .lineage-node div inside
+          if (parentComponent?.nativeElement && childComponent?.nativeElement) {
+            // Query for the actual visible .lineage-node div inside the component
+            const parentElement = parentComponent.nativeElement.querySelector('.lineage-node') as HTMLElement;
+            const childElement = childComponent.nativeElement.querySelector('.lineage-node') as HTMLElement;
 
-            // Calculate positions using offset properties
-            const parentOffsetLeft = parentElement.nativeElement.offsetLeft;
-            const parentOffsetTop = parentElement.nativeElement.offsetTop;
-            const childOffsetLeft = childElement.nativeElement.offsetLeft;
-            const childOffsetTop = childElement.nativeElement.offsetTop;
+            if (!parentElement || !childElement) {
+              return;
+            }
+
+            const fromRect = parentElement.getBoundingClientRect();
+            const toRect = childElement.getBoundingClientRect();
+
+            // Use offsetLeft/offsetTop for consistent positioning relative to the parent
+            const parentOffsetLeft = parentElement.offsetLeft;
+            const parentOffsetTop = parentElement.offsetTop;
+            const childOffsetLeft = childElement.offsetLeft;
+            const childOffsetTop = childElement.offsetTop;
 
             // Use getBoxToBoxArrow to calculate arrow path
             const [sx, sy, c1x, c1y, c2x, c2y, ex, ey, ae] = getBoxToBoxArrow(
               parentOffsetLeft,
               parentOffsetTop,
-              fromRect.width / this.ratio(),
-              fromRect.height / this.ratio(),
+              fromRect.width,
+              fromRect.height,
               childOffsetLeft,
               childOffsetTop,
-              toRect.width / this.ratio(),
-              toRect.height / this.ratio(),
+              toRect.width,
+              toRect.height,
               {padStart: 0, padEnd: 7}
             );
 
@@ -270,6 +307,7 @@ export class ProjectLineageViewComponent implements OnInit, OnDestroy {
     });
 
     this.arrows.set(arrows);
+    this.drawingArrows = false;
   }
 
   public selectNode(node: LineageNode): void {
