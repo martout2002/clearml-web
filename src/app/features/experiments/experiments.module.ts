@@ -91,6 +91,7 @@ import {ExperimentInfoLineageComponent} from '@common/experiments/containers/exp
 import {LineageNodeComponent} from '@common/experiments/dumb/lineage-node/lineage-node.component';
 import {LineageNodeDetailsPopoverComponent} from '@common/experiments/dumb/lineage-node-details-popover/lineage-node-details-popover.component';
 import {ProjectLineageViewComponent} from '@common/experiments/containers/project-lineage-view/project-lineage-view.component';
+import {NgxGraphModule} from '@swimlane/ngx-graph';
 
 
 @NgModule({
@@ -161,6 +162,7 @@ import {ProjectLineageViewComponent} from '@common/experiments/containers/projec
     ExperimentOperationsLogComponent,
     ExperimentArtifactsNavbarComponent,
     GraphSettingsBarComponent,
+    NgxGraphModule,
   ],
   declarations: [
     ExperimentOutputComponent,

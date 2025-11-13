@@ -424,4 +424,87 @@ export class ExperimentLineageService {
       return [];
     }
   }
+
+  /**
+   * Transform LineageNode array to ngx-graph format
+   */
+  toNgxGraphFormat(nodes: LineageNode[]): NgxGraphData {
+    const graphNodes: NgxGraphNode[] = [];
+    const graphLinks: NgxGraphLink[] = [];
+    const graphClusters: NgxGraphCluster[] = [];
+
+    // Track section nodes for each task (for clustering)
+    const taskSectionNodes = new Map<string, string[]>();
+
+    nodes.forEach(node => {
+      // Create graph node
+      graphNodes.push({
+        id: node.id,
+        label: node.taskName,
+        data: node // Store original LineageNode for custom template
+      });
+
+      // Track section nodes belonging to tasks
+      if (node.type !== 'task' && node.parentTaskId) {
+        const sections = taskSectionNodes.get(node.parentTaskId) || [];
+        sections.push(node.id);
+        taskSectionNodes.set(node.parentTaskId, sections);
+      }
+
+      // Create edges from parent nodes to this node
+      node.parentIds.forEach((parentId, index) => {
+        graphLinks.push({
+          id: `${parentId}-${node.id}-${index}`,
+          source: parentId,
+          target: node.id,
+          label: node.hyperparamsChanged && node.hyperparamsChanged.length > 0
+            ? `${node.hyperparamsChanged.length} changes`
+            : undefined
+        });
+      });
+    });
+
+    // Create clusters for tasks with their section nodes
+    taskSectionNodes.forEach((sectionNodeIds, taskId) => {
+      if (sectionNodeIds.length > 0) {
+        const taskNode = nodes.find(n => n.id === taskId);
+        graphClusters.push({
+          id: `cluster-${taskId}`,
+          label: taskNode?.taskName || 'Task',
+          childNodeIds: [taskId, ...sectionNodeIds]
+        });
+      }
+    });
+
+    return {
+      nodes: graphNodes,
+      links: graphLinks,
+      clusters: graphClusters
+    };
+  }
+}
+
+export interface NgxGraphNode {
+  id: string;
+  label: string;
+  data?: LineageNode;
+}
+
+export interface NgxGraphLink {
+  id: string;
+  source: string;
+  target: string;
+  label?: string;
+}
+
+export interface NgxGraphCluster {
+  id: string;
+  label: string;
+  childNodeIds: string[];
+}
+
+export interface NgxGraphData {
+  nodes: NgxGraphNode[];
+  links: NgxGraphLink[];
+  clusters: NgxGraphCluster[];
 }

@@ -5,9 +5,16 @@ import {takeUntil, filter} from 'rxjs/operators';
 import {Router} from '@angular/router';
 import {selectRouterProjectId} from '@common/core/reducers/projects.reducer';
 import {ExperimentLineageService, LineageNode} from '../experiment-info-lineage/experiment-lineage.service';
-import {Arrow} from '../experiment-info-lineage/experiment-info-lineage.component';
 import {getBoxToBoxArrow} from 'curved-arrows';
 import {selectScaleFactor} from '@common/core/reducers/view.reducer';
+
+export interface Arrow {
+  path: string;
+  headTransform: string;
+  selected: boolean;
+  sourceId: string;
+  targetId: string;
+}
 
 @Component({
   selector: 'sm-project-lineage-view',
