@@ -275,7 +275,7 @@ export class ProjectLineageViewComponent implements OnInit, OnDestroy {
             const fromRect = parentElement.getBoundingClientRect();
             const toRect = childElement.getBoundingClientRect();
 
-            // Use offsetLeft/offsetTop for consistent positioning relative to the parent
+            // Use offsetLeft/offsetTop which are relative to the positioned parent (.dag-content)
             const parentOffsetLeft = parentElement.offsetLeft;
             const parentOffsetTop = parentElement.offsetTop;
             const childOffsetLeft = childElement.offsetLeft;

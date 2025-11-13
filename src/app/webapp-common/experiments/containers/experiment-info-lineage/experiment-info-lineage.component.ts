@@ -31,7 +31,7 @@ export class ExperimentInfoLineageComponent implements OnInit, OnDestroy {
     filter(exp => !!exp)
   );
 
-  public diagramRect: DOMRect;
+  public diagramRect: DOMRect | null = null;
 
   // Signals for reactive state
   public loading = signal(false);
@@ -63,10 +63,22 @@ export class ExperimentInfoLineageComponent implements OnInit, OnDestroy {
       const model = this.dagModel();
       if (model && model.length > 0 && !this.drawingArrows) {
         // Use setTimeout to ensure DOM has updated and Angular has rendered attributes
-        setTimeout(() => this.drawArrows(), 300);
+        setTimeout(() => this.drawArrows(), 500);
       }
     });
+
+    // Redraw arrows on window resize
+    this.destroyRef.onDestroy(() => {
+      window.removeEventListener('resize', this.onResize);
+    });
+    window.addEventListener('resize', this.onResize);
   }
+
+  private onResize = () => {
+    if (this.dagModel().length > 0) {
+      setTimeout(() => this.drawArrows(), 100);
+    }
+  };
 
   ngOnInit(): void {
     this.experiment$
@@ -75,7 +87,6 @@ export class ExperimentInfoLineageComponent implements OnInit, OnDestroy {
         takeUntil(this.destroy$)
       )
       .subscribe(experiment => {
-        console.log('experiment$ emitted (after distinctUntilChanged):', experiment?.id);
         if (experiment) {
           this.loadLineage(experiment);
         }
@@ -109,10 +120,9 @@ export class ExperimentInfoLineageComponent implements OnInit, OnDestroy {
     this.drawingArrows = true;
     const arrows: Arrow[] = [];
     const dagModel = this.dagModel();
-    const nodeElements = this.nodeElements();
 
-    // Return early if no nodes or no container
-    if (!dagModel || dagModel.length === 0 || !nodeElements || nodeElements.length === 0) {
+    // Return early if no nodes
+    if (!dagModel || dagModel.length === 0) {
       this.arrows.set([]);
       this.drawingArrows = false;
       return;
@@ -125,23 +135,45 @@ export class ExperimentInfoLineageComponent implements OnInit, OnDestroy {
       this.drawingArrows = false;
       return;
     }
-    this.diagramRect = containerElement.nativeElement.getBoundingClientRect();
+    
+    // Get the .dag-content element for accurate positioning
+    const dagContent = containerElement.nativeElement.querySelector('.dag-content') as HTMLElement;
+    if (!dagContent) {
+      this.arrows.set([]);
+      this.drawingArrows = false;
+      return;
+    }
+    
+    const dagContainer = containerElement.nativeElement;
+    this.diagramRect = dagContent.getBoundingClientRect();
+    console.log('Screen size:', window.innerWidth, 'x', window.innerHeight);
+    console.log('DAG Content rect:', {
+      left: this.diagramRect.left,
+      top: this.diagramRect.top,
+      width: this.diagramRect.width,
+      height: this.diagramRect.height
+    });
+    console.log('Scroll position:', {
+      scrollLeft: dagContainer.scrollLeft,
+      scrollTop: dagContainer.scrollTop
+    });
+    console.log('Chart dimensions:', {
+      chartWidth: this.chartWidth(),
+      chartHeight: this.chartHeight()
+    });
 
     // Flatten dag model to get all nodes
     const allNodes = dagModel.flat();
     
     // Build a map of node IDs to elements by querying the DOM directly
     const nodeElementsMap = new Map<string, HTMLElement>();
-    const container = this.dagContainer()?.nativeElement;
-    if (container) {
-      const nodeElements = container.querySelectorAll('sm-lineage-node[data-node-id]');
-      nodeElements.forEach((el: HTMLElement) => {
-        const nodeId = el.getAttribute('data-node-id');
-        if (nodeId) {
-          nodeElementsMap.set(nodeId, el);
-        }
-      });
-    }
+    const nodeComponentElements = dagContent.querySelectorAll('sm-lineage-node[data-node-id]');
+    nodeComponentElements.forEach((el: HTMLElement) => {
+      const nodeId = el.getAttribute('data-node-id');
+      if (nodeId) {
+        nodeElementsMap.set(nodeId, el);
+      }
+    });
 
     // Draw arrows for each node's parent connections
     allNodes.forEach(node => {
@@ -157,8 +189,16 @@ export class ExperimentInfoLineageComponent implements OnInit, OnDestroy {
         }
 
         // Find DOM elements for parent and child nodes using the map
-        const parentElement = nodeElementsMap.get(parentId);
-        const childElement = nodeElementsMap.get(node.id);
+        const parentComponent = nodeElementsMap.get(parentId);
+        const childComponent = nodeElementsMap.get(node.id);
+
+        if (!parentComponent || !childComponent) {
+          return;
+        }
+
+        // Query for the actual .lineage-node div inside each component
+        const parentElement = parentComponent.querySelector('.lineage-node') as HTMLElement;
+        const childElement = childComponent.querySelector('.lineage-node') as HTMLElement;
 
         if (!parentElement || !childElement) {
           return;
@@ -168,15 +208,28 @@ export class ExperimentInfoLineageComponent implements OnInit, OnDestroy {
         if (parentElement && childElement) {
           const fromRect = parentElement.getBoundingClientRect();
           const toRect = childElement.getBoundingClientRect();
+          const dagContentRect = dagContent.getBoundingClientRect();
 
-          // Calculate positions using offset properties
-          const parentOffsetLeft = parentElement.offsetLeft;
-          const parentOffsetTop = parentElement.offsetTop;
-          const childOffsetLeft = childElement.offsetLeft;
-          const childOffsetTop = childElement.offsetTop;
+          // Calculate positions relative to dag-content using getBoundingClientRect
+          // Add scroll offset since the container is scrollable
+          const parentOffsetLeft = (fromRect.left - dagContentRect.left) + dagContainer.scrollLeft;
+          const parentOffsetTop = (fromRect.top - dagContentRect.top) + dagContainer.scrollTop;
+          const childOffsetLeft = (toRect.left - dagContentRect.left) + dagContainer.scrollLeft;
+          const childOffsetTop = (toRect.top - dagContentRect.top) + dagContainer.scrollTop;
+
+          console.log(`Arrow from ${parentId} to ${node.id}:`, {
+            parentRect: {left: fromRect.left, top: fromRect.top},
+            childRect: {left: toRect.left, top: toRect.top},
+            containerRect: {left: dagContentRect.left, top: dagContentRect.top},
+            calculated: {
+              parentX: parentOffsetLeft,
+              parentY: parentOffsetTop,
+              childX: childOffsetLeft,
+              childY: childOffsetTop
+            }
+          });
 
           // Use getBoxToBoxArrow to calculate arrow path
-          // Note: getBoundingClientRect() returns actual rendered size, no need to adjust by ratio
           const [sx, sy, c1x, c1y, c2x, c2y, ex, ey, ae] = getBoxToBoxArrow(
             parentOffsetLeft,
             parentOffsetTop,
@@ -188,6 +241,8 @@ export class ExperimentInfoLineageComponent implements OnInit, OnDestroy {
             toRect.height,
             {padStart: 0, padEnd: 7}
           );
+
+          console.log('Arrow coordinates:', {start: {sx, sy}, end: {ex, ey}});
 
           arrows.push({
             path: `M${sx} ${sy} C${c1x} ${c1y}, ${c2x} ${c2y}, ${ex} ${ey}`,

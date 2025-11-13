@@ -41,7 +41,7 @@
     <div class="dag-container" #dagContainer>
       <div class="dag-content">
         @for (row of dagModel(); track $index) {
-          <div class="level" [style.width.px]="chartWidth()">
+          <div class="level">
             @for (node of row; track node.id) {
               <sm-lineage-node
                 #nodeEl
@@ -60,7 +60,10 @@
         <!-- SVG Arrow layer -->
         <svg
           class="arrows"
-          [attr.viewBox]="'0 0 ' + chartWidth() + ' ' + chartHeight()">
+          [attr.width]="'100%'"
+          [attr.height]="'100%'"
+          [attr.viewBox]="diagramRect ? '0 0 ' + diagramRect.width + ' ' + diagramRect.height : '0 0 800 600'"
+          [attr.preserveAspectRatio]="'none'">
           @for (arrow of highlightedArrows(); track arrow.path) {
             <g [class.selected]="arrow.selected">
               <path
