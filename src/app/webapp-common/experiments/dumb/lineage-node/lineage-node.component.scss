@@ -3,7 +3,7 @@
   display: flex;
   flex-direction: column;
   width: 220px;
-  min-height: 100px;
+  height: 140px; // Fixed height for consistent arrow positioning
   background: var(--color-card-background, #fff);
   border: 2px solid var(--color-border, #e0e0e0);
   border-radius: 8px;
@@ -11,6 +11,7 @@
   cursor: pointer;
   transition: all 0.2s ease;
   z-index: 10;
+  overflow: hidden; // Prevent content overflow
 
   &:hover {
     transform: translateY(-2px);
@@ -36,7 +37,7 @@
 .lineage-node[data-node-type="input-models"],
 .lineage-node[data-node-type="output-models"] {
   width: 220px;
-  min-height: 120px;
+  height: 140px; // Match main node height
   border-style: dashed;
   padding: 0.5rem;
   
@@ -168,6 +169,8 @@
   flex-direction: column;
   gap: 0.5rem;
   margin-bottom: 0.5rem;
+  overflow: hidden; // Prevent overflow from metrics/changes
+  min-height: 0; // Allow flex shrinking
 
   .status-badge {
     display: inline-block;
@@ -229,6 +232,8 @@
     background: var(--color-grey-lighter, #fafafa);
     border-radius: 4px;
     font-size: 0.7rem;
+    max-height: 60px; // Limit height to prevent overflow
+    overflow-y: auto; // Allow scrolling if needed
 
     .metric-item {
       color: var(--color-text-secondary, #666);

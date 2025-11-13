@@ -28,7 +28,7 @@
   }
 
   <!-- Empty state -->
-  @if (!loading() && dagModel().length === 0) {
+  @if (!loading() && graphData().nodes.length === 0) {
     <div class="empty-state">
       <mat-icon>account_tree</mat-icon>
       <p>No lineage data available</p>
@@ -36,48 +36,66 @@
     </div>
   }
 
-  <!-- DAG Visualization -->
-  @if (!loading() && dagModel().length > 0) {
-    <div class="dag-container" #dagContainer>
-      <div class="dag-content">
-        @for (row of dagModel(); track $index) {
-          <div class="level" [style.width.px]="chartWidth()">
-            @for (node of row; track node.id) {
+  <!-- Graph Visualization -->
+  @if (!loading() && graphData().nodes.length > 0) {
+    <div class="graph-container">
+      <ngx-graph
+        class="lineage-graph"
+        [nodes]="graphData().nodes"
+        [links]="graphData().links"
+        [clusters]="graphData().clusters"
+        [curve]="curve"
+        layout="dagreCluster"
+        [layoutSettings]="layoutSettings"
+        [autoZoom]="true"
+        [autoCenter]="true"
+        [panOnZoom]="true"
+        [enableZoom]="true"
+        [zoomSpeed]="0.1"
+        [minZoomLevel]="0.1"
+        [maxZoomLevel]="4.0"
+        [panningEnabled]="true"
+        (select)="onNodeSelect($event)">
+
+        <!-- Custom node template -->
+        <ng-template #nodeTemplate let-node>
+          <svg:foreignObject
+            [attr.width]="220"
+            [attr.height]="140"
+            [attr.x]="-110"
+            [attr.y]="-70">
+            <xhtml:div class="node-wrapper">
               <sm-lineage-node
-                #nodeEl
-                [attr.data-node-id]="node.id"
-                [node]="node"
-                [selected]="selectedNode()?.id === node.id"
+                [node]="node.data"
+                [selected]="selectedNode()?.id === node.data?.id"
                 [showMetrics]="showMetrics()"
                 [highlightChanges]="filterChangedOnly()"
-                (nodeClick)="selectNode(node)"
-                (navigateClick)="navigateToTask(node.taskId)">
+                (nodeClick)="selectNode(node.data)"
+                (navigateClick)="navigateToTask(node.data?.taskId)">
               </sm-lineage-node>
-            }
-          </div>
-        }
+            </xhtml:div>
+          </svg:foreignObject>
+        </ng-template>
 
-        <!-- SVG Arrow layer -->
-        <svg
-          class="arrows"
-          [attr.viewBox]="'0 0 ' + chartWidth() + ' ' + chartHeight()">
-          @for (arrow of highlightedArrows(); track arrow.path) {
-            <g [class.selected]="arrow.selected">
-              <path
-                [attr.d]="arrow.path"
-                fill="none"
-                stroke-width="2"
-                stroke="var(--color-border)">
-              </path>
-              <polygon
-                points="0,-6 12,0, 0,6"
-                [attr.transform]="arrow.headTransform"
-                fill="var(--color-border)">
-              </polygon>
-            </g>
-          }
-        </svg>
-      </div>
+        <!-- Custom link template -->
+        <ng-template #linkTemplate let-link>
+          <svg:g class="edge">
+            <svg:path
+              class="line"
+              [attr.d]="link.line"
+              stroke-width="2"
+              fill="none"
+              [class.selected]="selectedNode()?.id === link.source || selectedNode()?.id === link.target">
+            </svg:path>
+            @if (link.label) {
+              <svg:text class="edge-label" text-anchor="middle">
+                {{link.label}}
+              </svg:text>
+            }
+          </svg:g>
+        </ng-template>
+
+      </ngx-graph>
     </div>
   }
 </div>
