@@ -19,6 +19,7 @@ export const infoTabLinks = [
   {name: 'configuration', url: ['hyper-params', 'hyper-param', '_empty_'], activeBy: 'hyper-params'},
   {name: 'artifacts', url: ['artifacts']},
   {name: 'info', url: ['general']},
+  {name: 'lineage', url: ['lineage']},
   {name: 'console', url: ['log'], output: true},
   {name: 'scalars', url: ['scalars'], output: true},
   {name: 'plots', url: ['plots'], output: true},

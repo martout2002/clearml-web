@@ -1,0 +1,103 @@
+<div
+  class="lineage-node"
+  [attr.data-node-type]="node.type"
+  [class.selected]="selected"
+  [class.has-changes]="highlightChanges && hasChanges"
+  [class.status]="statusClass"
+  (click)="onClick()"
+  (mouseenter)="onMouseEnter()"
+  (mouseleave)="onMouseLeave()">
+
+  <!-- Node Header -->
+  <div class="node-header">
+    <div class="node-icon">
+      <mat-icon>{{getNodeIcon()}}</mat-icon>
+    </div>
+    <div class="node-title">
+      <span class="task-name" [title]="node.taskName">{{node.taskName}}</span>
+      @if (node.modelName) {
+        <span class="model-name" [title]="node.modelName">
+          <mat-icon class="small-icon">arrow_forward</mat-icon>
+          {{node.modelName}}
+        </span>
+      }
+    </div>
+  </div>
+
+  <!-- Node Body -->
+  <div class="node-body">
+    <!-- Status Badge -->
+    <div class="status-badge" [class]="statusClass">
+      {{node.task?.status || 'unknown'}}
+    </div>
+
+    <!-- Change Indicators -->
+    @if (highlightChanges && hasChanges) {
+      <div class="changes-indicator">
+        <mat-icon>change_circle</mat-icon>
+        <span>
+          {{(node.hyperparamsChanged?.length || 0) + (node.configChanged?.length || 0)}} changes
+        </span>
+      </div>
+    }
+
+    <!-- Metrics Display -->
+    @if (showMetrics && displayMetrics.length > 0) {
+      <div class="metrics-preview">
+        @for (metric of displayMetrics; track metric) {
+          <div class="metric-item">{{metric}}</div>
+        }
+      </div>
+    }
+  </div>
+
+  <!-- Node Footer -->
+  <div class="node-footer">
+    <button
+      mat-icon-button
+      class="info-button"
+      [matMenuTriggerFor]="detailsMenu"
+      (click)="onInfoClick($event)"
+      title="View details">
+      <mat-icon>info</mat-icon>
+    </button>
+    <button
+      mat-icon-button
+      class="navigate-button"
+      (click)="onNavigate($event)"
+      title="Go to task">
+      <mat-icon>open_in_new</mat-icon>
+    </button>
+  </div>
+
+  <!-- Details Popover Menu -->
+  <mat-menu #detailsMenu="matMenu" class="lineage-details-menu" [hasBackdrop]="false">
+    <div (click)="$event.stopPropagation()">
+      <sm-lineage-node-details-popover [node]="node"></sm-lineage-node-details-popover>
+    </div>
+  </mat-menu>
+
+  <!-- Tooltip -->
+  @if (showTooltip()) {
+    <div class="node-tooltip">
+      <div class="tooltip-row">
+        <strong>Task ID:</strong> {{node.taskId}}
+      </div>
+      @if (node.modelId) {
+        <div class="tooltip-row">
+          <strong>Model ID:</strong> {{node.modelId}}
+        </div>
+      }
+      @if (node.hyperparamsChanged && node.hyperparamsChanged.length > 0) {
+        <div class="tooltip-row">
+          <strong>Changed Params:</strong>
+          <ul>
+            @for (param of node.hyperparamsChanged; track param) {
+              <li>{{param}}</li>
+            }
+          </ul>
+        </div>
+      }
+    </div>
+  }
+</div>

@@ -42,6 +42,7 @@ import {
 import {ColHeaderTypeEnum, ISmCol, TableSortOrderEnum} from '../shared/ui-components/data/table/table.consts';
 import {isEqual} from 'lodash-es';
 import {selectRouterParams} from '../core/reducers/router-reducer';
+import {NavigationEnd} from '@angular/router';
 import {distinctUntilChanged, filter, map, skip, switchMap, tap, withLatestFrom} from 'rxjs/operators';
 import {combineLatest, Observable} from 'rxjs';
 import {selectBackdropActive} from '../core/reducers/view.reducer';
@@ -148,6 +149,19 @@ export class ExperimentsComponent extends BaseEntityPageComponent implements OnD
 
   protected override splitSize = this.store.selectSignal(selectSplitSize);
   protected override showAllSelectedIsActive$ = this.store.select(selectShowAllSelectedIsActive);
+
+  // Check if we're on the lineage route
+  protected isLineageView = toSignal(
+    this.router.events.pipe(
+      filter(event => event instanceof NavigationEnd),
+      map(() => {
+        const url = this.router.url;
+        // Match /tasks/lineage or /experiments/lineage but not /:id/lineage
+        return url.includes('/lineage') && !url.match(/\/[a-f0-9]{32}\/lineage/);
+      })
+    ),
+    {initialValue: false}
+  );
 
   protected isPipeline$ = this.store.select(selectIsPipelines);
   protected tableSortFields$ = this.store.select(selectTableSortFields).pipe(tap(field => this.sortFields = field));

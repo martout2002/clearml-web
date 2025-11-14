@@ -1,0 +1,160 @@
+.experiment-lineage-container {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  padding: 1rem;
+  background: var(--color-background);
+}
+
+.lineage-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1.5rem;
+  padding-bottom: 1rem;
+  border-bottom: 1px solid var(--color-border);
+
+  h3 {
+    margin: 0;
+    font-size: 1.25rem;
+    font-weight: 500;
+    color: var(--color-text-primary);
+  }
+}
+
+.lineage-controls {
+  display: flex;
+  gap: 0.75rem;
+
+  button {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+
+    &.active {
+      background-color: var(--color-primary);
+      color: white;
+    }
+
+    mat-icon {
+      font-size: 1.25rem;
+      width: 1.25rem;
+      height: 1.25rem;
+    }
+  }
+}
+
+.loading-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 400px;
+  gap: 1rem;
+
+  p {
+    color: var(--color-text-secondary);
+    margin: 0;
+  }
+}
+
+.empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 400px;
+  color: var(--color-text-secondary);
+
+  mat-icon {
+    font-size: 4rem;
+    width: 4rem;
+    height: 4rem;
+    margin-bottom: 1rem;
+    opacity: 0.5;
+  }
+
+  p {
+    font-size: 1.1rem;
+    margin: 0.5rem 0;
+  }
+
+  small {
+    opacity: 0.7;
+  }
+}
+
+.dag-container {
+  flex: 1;
+  overflow: auto;
+  position: relative;
+}
+
+.dag-content {
+  position: relative;
+  min-height: 100%;
+  padding: 0rem;
+
+  .level {
+    display: flex;
+    justify-content: space-around;
+    align-items: center;
+    margin: 2rem auto;
+    min-height: 100px;
+  }
+
+  .arrows {
+    position: absolute;
+    top: 0;
+    left: 0;
+    pointer-events: none;
+    z-index: 100;
+
+    g {
+      path {
+        stroke: #1976d2;
+        transition: stroke 0.2s ease;
+      }
+
+      polygon {
+        fill: #1976d2;
+        transition: fill 0.2s ease;
+      }
+
+      &.selected {
+        path {
+          stroke: var(--color-primary);
+          stroke-width: 3;
+        }
+
+        polygon {
+          fill: var(--color-primary);
+        }
+      }
+    }
+  }
+}
+
+// Dark mode support
+:host-context(.dark-theme), 
+:host-context([data-theme="dark"]) {
+  .dag-content .arrows g {
+    path {
+      stroke: #64b5f6;
+    }
+
+    polygon {
+      fill: #64b5f6;
+    }
+
+    &.selected {
+      path {
+        stroke: var(--color-primary);
+      }
+
+      polygon {
+        fill: var(--color-primary);
+      }
+    }
+  }
+}

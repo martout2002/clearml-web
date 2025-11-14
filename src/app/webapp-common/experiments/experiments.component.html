@@ -46,27 +46,45 @@
         <span>NEW TASK</span>
       }
     </button>
+    <button
+      mat-stroked-button
+      class="me-3"
+      [class.icon-only]="isSmallScreen"
+      data-id="View Lineage"
+      [routerLink]="['lineage']"
+      [smTooltip]="isSmallScreen ? 'VIEW LINEAGE' : ''"
+    >
+      <mat-icon>account_tree</mat-icon>
+      @if (!isSmallScreen) {
+        <span>VIEW LINEAGE</span>
+      }
+    </button>
   }
 </ng-template>
 <div class="experiment-body">
-  <as-split
-    [gutterSize]=1
-    [useTransition]="true"
-    [gutterDblClickDuration]="400"
-    (gutterClick)="clickOnSplit()"
-    (gutterDblClick)="closePanel()"
-    (dragEnd)="splitSizeChange($event)"
-    (dragStart)="disableInfoPanel()"
-    (transitionEnd)="experimentsTable.table()?.resize(100); experimentsTable.afterTableInit()"
-    [class.opened]="minimizedView() && splitSize() <= 1"
-    [class.closed]="minimizedView() && splitSize() >= 99"
-  >
-    <as-split-area
-      [size]="100 - splitSize()"
-      [minSize]="1"
-      [maxSize]="99"
+  @if (isLineageView()) {
+    <!-- Full-width lineage view -->
+    <router-outlet></router-outlet>
+  } @else {
+    <!-- Normal table with split view -->
+    <as-split
+      [gutterSize]=1
+      [useTransition]="true"
+      [gutterDblClickDuration]="400"
+      (gutterClick)="clickOnSplit()"
+      (gutterDblClick)="closePanel()"
+      (dragEnd)="splitSizeChange($event)"
+      (dragStart)="disableInfoPanel()"
+      (transitionEnd)="experimentsTable.table()?.resize(100); experimentsTable.afterTableInit()"
+      [class.opened]="minimizedView() && splitSize() <= 1"
+      [class.closed]="minimizedView() && splitSize() >= 99"
     >
-      <sm-experiments-table
+      <as-split-area
+        [size]="100 - splitSize()"
+        [minSize]="1"
+        [maxSize]="99"
+      >
+        <sm-experiments-table
         #experimentsTable
         class="align-self-stretch"
         selectionMode="single"
@@ -120,9 +138,10 @@
       [class.info-disabled]="infoDisabled"
       [visible]="minimizedView()"
     >
-      <router-outlet></router-outlet>
-    </as-split-area>
-  </as-split>
+        <router-outlet></router-outlet>
+      </as-split-area>
+    </as-split>
+  }
 </div>
 
 <sm-entity-footer
